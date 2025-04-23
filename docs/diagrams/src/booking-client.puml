@@ -1,0 +1,22 @@
+' Специалист создаёт событие напрямую из шаблона (например, публичное групповое занятие).
+@startuml
+actor Specialist
+participant "UI" as UI
+participant "System" as System
+participant "NotificationService" as NS
+participant "Database" as DB
+
+Specialist -> UI: Выбрать шаблон и задать время
+UI -> System: Создать Event
+System -> DB: Проверить Availability специалиста
+alt Время доступно
+  System -> DB: Сохранить Event
+  System -> NS: Отправить уведомление о новом событии (Clients, если PUBLIC)
+  NS -> Client: Уведомление (email/SMS/push)
+  System -> NS: Отправить уведомление о создании события (Specialist)
+  NS -> Specialist: Уведомление (email/SMS/push)
+else Время занято
+  System -> UI: Ошибка: время недоступно
+  UI -> Specialist: Показать ошибку
+end
+@enduml

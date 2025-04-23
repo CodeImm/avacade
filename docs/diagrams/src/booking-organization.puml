@@ -1,0 +1,64 @@
+@startuml
+actor Client
+actor Manager
+actor Specialist
+participant "UI" as UI
+participant "System" as System
+participant "Database" as DB
+participant "NotificationService" as NS
+
+Client -> UI: Создать Booking (template_id, specialist_id, start_time, end_time)
+UI -> System: Валидировать и создать Booking
+System -> DB: Найти EventTemplate (template_id)
+System -> DB: Найти SpecialistProfile (specialist_id)
+System -> DB: Проверить Availability для Venue (organization_id)
+alt Venue доступен
+  System -> DB: Проверить Availability для Specialist (specialist_id)
+  alt Specialist доступен
+    System -> DB: Создать Booking (status: PENDING, eventId: null)
+    System -> DB: Найти Manager (ManagerProfile.managed_venues)
+    System -> NS: Уведомить Manager о назначении roomId
+    NS -> Manager: Уведомление (BOOKING_ROOM_ASSIGNMENT)
+    System -> UI: Booking создан, ожидает назначения комнаты
+    UI -> Client: Подтверждение (PENDING)
+  else Specialist занят
+    System -> UI: Ошибка: Специалист занят
+    UI -> Client: Показать ошибку
+  end
+else Venue закрыт
+  System -> UI: Ошибка: Venue закрыт
+  UI -> Client: Показать ошибку
+end
+
+Manager -> UI: Назначить roomId для Booking
+UI -> System: Обновить Booking, создать Event
+System -> DB: Проверить Availability для Room (roomId)
+alt Room доступна
+  System -> DB: Проверить конфликты Event (roomId, start_time, end_time)
+  alt Нет конфликтов
+    System -> DB: Создать Event (room_id, specialist_id, organization_id)
+    System -> DB: Обновить Booking (eventId, status: PENDING)
+    System -> NS: Уведомить Specialist о новой Booking
+    NS -> Specialist: Уведомление (email/push)
+    System -> NS: Уведомить Client о подтверждении
+    NS -> Client: Уведомление (email/push)
+    System -> UI: Успешно назначено
+    UI -> Manager: Подтверждение
+  else Конфликт
+    System -> UI: Ошибка: Комната занята
+    UI -> Manager: Показать ошибку
+  end
+else Room недоступна
+  System -> UI: Ошибка: Комната недоступна
+  UI -> Manager: Показать ошибку
+end
+
+Specialist -> UI: Подтвердить Booking
+UI -> System: Обновить Booking (status: CONFIRMED)
+System -> DB: Обновить Booking
+System -> NS: Уведомить Client о подтверждении
+NS -> Client: Уведомление (email/push)
+System -> UI: Успешно подтверждено
+UI -> Specialist: Подтверждение
+
+@enduml

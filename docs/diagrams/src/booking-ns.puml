@@ -1,0 +1,24 @@
+@startuml
+actor Client
+actor Specialist
+participant "UI" as UI
+participant "System" as System
+participant "NotificationService" as NS
+participant "Database" as DB
+
+Client -> UI: Выбрать шаблон и время
+UI -> System: Создать Booking
+System -> DB: Сохранить Booking (status: PENDING)
+System -> NS: Отправить уведомление о создании записи (Client)
+NS -> Client: Уведомление (email/SMS/push)
+System -> NS: Отправить уведомление о новой записи (Specialist)
+NS -> Specialist: Уведомление (email/SMS/push)
+Specialist -> UI: Подтвердить запись
+UI -> System: Обновить Booking (status: CONFIRMED)
+System -> DB: Создать Event, обновить Booking.eventId
+System -> NS: Отправить уведомление о подтверждении (Client)
+NS -> Client: Уведомление (email/SMS/push)
+System -> NS: Отправить уведомление о создании события (Specialist)
+NS -> Specialist: Уведомление (email/SMS/push)
+
+@enduml

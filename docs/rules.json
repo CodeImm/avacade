@@ -1,0 +1,22 @@
+{
+  "intervals": [
+    {
+      "start_time": "08:00",
+      "end_time": "20:00",
+      "days_of_week": ["MON", "TUE", "WED", "THU", "FRI"],
+      "valid_from": "2025-01-01",
+      "valid_until": "2025-12-31"
+    }
+  ],
+  "exceptions": [
+    {
+      "date": "2025-07-04",
+      "status": "CLOSED"
+    }
+  ],
+  "recurrence_rule": {
+    "frequency": "WEEKLY",
+    "interval": 1,
+    "until": "2025-12-31"
+  }
+}

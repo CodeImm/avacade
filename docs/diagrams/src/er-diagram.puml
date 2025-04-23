@@ -1,0 +1,353 @@
+@startuml
+entity Role {
+  +id : uuid
+  +type : RoleType 
+  +description : string
+}
+
+enum RoleType {
+  CLIENT
+  SPECIALIST
+  ORGANIZATION_OWNER
+  ADMIN
+  MANAGER
+  MODERATOR
+}
+
+entity UserRole {
+  +id : uuid
+  +userId : uuid
+  +roleId : uuid
+  +organizationId : uuid // опционально, для ролей в контексте организации
+  --
+  +created_at : datetime
+  +updated_at : datetime
+}
+
+entity User {
+  +id : uuid
+  +name : string
+  +email : string
+  +phone : string
+  +first_name : string
+  +middle_name : string
+  +last_name : string
+  +birth_date : date
+  +gender : Gender
+  +timezone : string
+  --
+  +created_at : datetime
+  +updated_at : datetime
+}
+note right of User
+  1) возможность указать несколько номеров
+  2) отчество
+  3) соц. сети
+end note
+
+enum Gender {
+  MALE
+  FEMALE
+  UNSPECIFIED
+}
+
+entity ClientProfile {
+  +id : uuid
+  +userId : uuid
+  +organizationId : uuid // nullable, контекст профиля
+  +preferences : json // предпочтения клиента
+  --
+  +created_at : datetime
+  +updated_at : datetime
+}
+
+entity SpecialistProfile {
+  +id : uuid
+  +userId : uuid
+  +organizationId : uuid // nullable, контекст профиля
+  +bio : string
+  +certifications : json
+  --
+  +created_at : datetime
+  +updated_at : datetime
+}
+
+entity OwnerProfile {
+  +id : uuid
+  +userId : uuid
+  +organizationId : uuid // контекст профиля
+  +business_type : string // тип бизнеса (например, fitness, education)
+  +settings : json // настройки управления
+  --
+  +created_at : datetime
+  +updated_at : datetime
+}
+
+entity AdminProfile {
+  +id : uuid
+  +userId : uuid
+  +permissions : json // глобальные права (например, user_management, moderation)
+  --
+  +created_at : datetime
+  +updated_at : datetime
+}
+
+entity ManagerProfile {
+  +id : uuid
+  +userId : uuid
+  +organizationId : uuid // контекст профиля
+  +managed_venues : json // список управляемых Venue
+  +responsibilities : json // обязанности (например, scheduling, specialist_assignment)
+  --
+  +created_at : datetime
+  +updated_at : datetime
+}
+
+entity ModeratorProfile {
+  +id : uuid
+  +userId : uuid
+  +organizationId : uuid // nullable, глобальный или локальный
+  +moderation_scopes : json // области модерации (например, specialist_registration, event_content)
+  --
+  +created_at : datetime
+  +updated_at : datetime
+}
+
+entity Organization {
+  +id : uuid
+  +title : string
+  +description : text
+  +logo_url : string
+  +website : string
+  +phone : string
+  +email : string
+  +timezone : string
+  --
+  +created_at : datetime
+  +updated_at : datetime
+}
+note right of Organization
+  1) несколько номеров, email'ов
+  2) соц. сети
+end note
+
+entity Venue {
+  +id : uuid
+  +organizationId : uuid
+  +title : string
+  +address : string
+  +description : text
+  +phone : string
+  +email : string
+  +timezone : string
+  +latitude : float
+  +longitude : float
+  +working_hours : json
+  --
+  +created_at : datetime
+  +updated_at : datetime
+}
+
+entity Room {
+  +id : uuid
+  +venueId : uuid
+  +title : string
+  +capacity : int
+  +floor : int
+  --
+  +created_at : datetime
+  +updated_at : datetime
+}
+
+entity Availability {
+  +id : uuid
+  +venueId : uuid // nullable
+  +roomId : uuid // nullable
+  +specialistId : uuid // nullable
+  +organizationId : uuid // nullable
+  +rules : json // единый формат правил записи
+  --
+  +created_at : datetime
+  +updated_at : datetime
+}
+note right of Availability
+  Хранит правила записи для Venue, Room, Specialist
+  в формате JSON (intervals, exceptions, recurrence_rule)
+end note
+
+enum EventStatus {
+  PLANNED
+  CONFIRMED
+  IN_PROGRESS
+  COMPLETED
+  CANCELED
+  POSTPONED
+}
+
+enum EventVisibility {
+  PUBLIC
+  PRIVATE
+  SERVICE 
+}
+
+enum EventDelivery {
+  OFFLINE
+  ONLINE
+  HYBRID
+  NONE
+}
+
+enum ParticipantMode {
+  GROUP
+  PERSONAL
+}
+
+' Сущность EventType
+entity EventType {
+  +id : uuid
+  +name : string
+  --
+  +created_at : datetime
+}
+
+note right of EventType
+  TRIAL
+  CONSULTATION
+  VACATION
+  LESSON
+  WORKSHOP
+  CLASS
+  MASTER_CLASS
+  TRAINING
+  COMPETITION
+  MATCH
+  SESSION
+  COACHING
+  SEMINAR
+  MAINTENANCE
+end note
+
+entity Event {
+  +id : uuid
+  +room_id : uuid
+  +parent_event_id : uuid
+  +organization_id : uuid
+  +specialist_id : uuid
+  +title : string
+  +description : text
+  +start_time : datetime
+  +end_time : datetime
+  +type_id : uuid
+  +participant_mode : ParticipantMode
+  +visibility : EventVisibility
+  +delivery : EventDelivery
+  +status : EventStatus
+  +max_participants : int
+  +is_recurring : boolean
+  +cancellation_reason : string
+  +recurrence_rule : json
+  --
+  +created_at : datetime
+  +updated_at : datetime
+}
+
+entity EventTemplate {
+  +id : uuid
+  +specialist_id : uuid
+  +type_id : uuid
+  +participant_mode : ParticipantMode
+  +delivery : EventDelivery
+  +visibility : EventVisibility
+  +is_client_accessible : boolean // true для клиентских, false для личных
+  +title : string
+  +description : text
+  +duration : int // в минутах
+  +is_bookable : boolean
+  +platform_link : string // для ONLINE, HYBRID
+  +difficulty_level : string
+  +is_active : boolean
+  --
+  +created_at : datetime
+}
+note right of EventTemplate
+  Шаблоны:
+  - Клиентские: is_client_accessible = true (TRIAL)
+  - Личные: is_client_accessible = false (VACATION)
+end note
+
+' Перечисление для статусов бронирования
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CANCELED
+  COMPLETED
+}
+
+entity Booking {
+  +id : uuid
+  +eventId : uuid
+  +client_id : uuid
+  +specialist_id : uuid
+  +template_id : uuid 
+  +start_time : datetime
+  +end_time : datetime
+  +status : BookingStatus
+  +price : Decimal
+  +comment : text
+  --
+  +created_at : datetime
+}
+note top of Booking
+  Запись — заявка клиента 
+  на событие по шаблону, 
+  требующая или не требующая
+  подтверждения специалистом
+end note
+
+' Связи
+EventType ||--o{ Event : defines
+User ||--o{ UserRole : has
+Role ||--o{ UserRole : assigned_to
+Organization ||--o{ UserRole : scoped_to
+
+User ||--o{ ClientProfile : has
+User ||--o{ SpecialistProfile : has
+User ||--o{ OwnerProfile : has
+User ||--o{ AdminProfile : has
+User ||--o{ ManagerProfile : has
+User ||--o{ ModeratorProfile : has
+Organization ||--o{ ClientProfile : scoped_to
+Organization ||--o{ SpecialistProfile : scoped_to
+Organization ||--o{ OwnerProfile : scoped_to
+Organization ||--o{ ManagerProfile : scoped_to
+Organization ||--o{ ModeratorProfile : scoped_to
+
+User ||--o{ Organization : owns
+User ||--o{ Event : teaches
+User ||--o{ Booking : makes
+
+Organization ||--o{ Venue : has
+Organization ||--o{ Event : organizes
+Venue ||--o{ Room : contains
+
+Room ||--o{ Event : hosts
+
+Event ||--o{ Booking : has
+EventTemplate ||--o{ Event : generates
+EventTemplate ||--o{ Booking : used_by
+EventType ||--o{ EventTemplate : defines
+User ||--o{ EventTemplate : creates
+
+Event ||--o{ EventDelivery : uses
+Event ||--o{ EventVisibility : uses
+Event ||--o{ EventStatus : uses
+Event ||--o{ ParticipantMode : uses
+Booking ||--o{ BookingStatus : uses
+Role ||--o{ RoleType : uses
+User ||--o{ Gender : uses
+
+Venue ||--o{ Availability : has
+Room ||--o{ Availability : has
+User ||--o{ Availability : has
+Organization ||--o{ Availability : scoped_to
+@enduml

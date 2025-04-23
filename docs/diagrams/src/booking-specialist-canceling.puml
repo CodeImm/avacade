@@ -1,0 +1,21 @@
+' Специалист отменяет событие
+@startuml
+actor Specialist
+actor Client
+participant "UI" as UI
+participant "System" as System
+participant "NotificationService" as NS
+participant "Database" as DB
+
+Specialist -> UI: Отменить событие
+UI -> System: Отменить Event
+System -> DB: Обновить Event (status: CANCELED, cancellation_reason)
+System -> DB: Найти все Booking для Event
+loop Для каждой Booking
+  System -> DB: Обновить Booking (status: CANCELED)
+  System -> NS: Отправить уведомление об отмене (Client)
+  NS -> Client: Уведомление (email/SMS/push)
+end
+System -> NS: Отправить уведомление об отмене события (Specialist)
+NS -> Specialist: Уведомление (email/SMS/push)
+@enduml

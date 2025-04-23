@@ -1,0 +1,8 @@
+@startuml
+actor Client
+Client -> UI: Ввести email, name
+UI -> System: Зарегистрировать клиента
+System -> DB: Создать User, UserRole (role: CLIENT)
+System -> NS: Отправить уведомление о регистрации
+NS -> Client: Уведомление (email)
+@enduml

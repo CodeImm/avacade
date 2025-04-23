@@ -1,0 +1,24 @@
+' Клиент записывается на существующее событие
+@startuml
+actor Client
+actor Specialist
+participant "UI" as UI
+participant "System" as System
+participant "NotificationService" as NS
+participant "Database" as DB
+
+Client -> UI: Выбрать существующее событие
+UI -> System: Создать Booking
+System -> DB: Проверить доступность (max_participants)
+alt Место доступно
+  System -> DB: Сохранить Booking (status: CONFIRMED)
+  System -> NS: Отправить уведомление о записи (Client)
+  NS -> Client: Уведомление (email/SMS/push)
+  System -> NS: Отправить уведомление о новой записи (Specialist)
+  NS -> Specialist: Уведомление (email/SMS/push)
+else Нет мест
+  System -> UI: Ошибка: нет доступных мест
+  UI -> Client: Показать ошибку
+end
+
+@enduml

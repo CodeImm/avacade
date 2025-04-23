@@ -1,0 +1,33 @@
+' Специалист создаёт событие напрямую из шаблона (например, публичное групповое занятие).
+@startuml
+actor Specialist
+actor Admin
+participant "UI" as UI
+participant "System" as System
+participant "NotificationService" as NS
+participant "Database" as DB
+
+Specialist -> UI: Ввести данные (email, name, bio, certifications)
+UI -> System: Зарегистрировать специалиста
+System -> DB: Проверить уникальность email
+alt Email уникален
+  System -> DB: Создать User
+  System -> DB: Создать UserRole (role: SPECIALIST)
+  System -> DB: Создать SpecialistProfile
+  opt Требуется модерация
+    System -> NS: Отправить уведомление о новой регистрации (Admin)
+    NS -> Admin: Уведомление (email)
+    Admin -> UI: Подтвердить регистрацию
+    UI -> System: Активировать специалиста
+    System -> DB: Обновить User (is_active: true)
+  end
+  System -> NS: Отправить уведомление о регистрации (Specialist)
+  NS -> Specialist: Уведомление (email с подтверждением)
+  System -> UI: Успешная регистрация
+  UI -> Specialist: Показать подтверждение
+else Email занят
+  System -> UI: Ошибка: email уже используется
+  UI -> Specialist: Показать ошибку
+end
+
+@enduml
