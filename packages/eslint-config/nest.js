@@ -1,7 +1,7 @@
-import globals from "globals";
-import tseslint from "typescript-eslint";
-import eslintPluginPrettierRecommended from "eslint-plugin-prettier/recommended";
-import { config } from "./base.js";
+import globals from 'globals';
+import tseslint from 'typescript-eslint';
+import eslintPluginPrettierRecommended from 'eslint-plugin-prettier/recommended';
+import { config } from './base.js';
 
 /** @type {import("eslint").Linter.Config[]} */
 export const nestJsConfig = [
@@ -14,7 +14,7 @@ export const nestJsConfig = [
         ...globals.node,
         ...globals.jest,
       },
-      sourceType: "commonjs",
+      sourceType: 'commonjs',
       parserOptions: {
         projectService: true,
         tsconfigRootDir: import.meta.dirname,
@@ -23,9 +23,9 @@ export const nestJsConfig = [
   },
   {
     rules: {
-      "@typescript-eslint/no-explicit-any": "off",
-      "@typescript-eslint/no-floating-promises": "warn",
-      "@typescript-eslint/no-unsafe-argument": "warn",
+      '@typescript-eslint/no-explicit-any': 'off',
+      '@typescript-eslint/no-floating-promises': 'warn',
+      '@typescript-eslint/no-unsafe-argument': 'warn',
     },
   },
 ];

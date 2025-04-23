@@ -152,6 +152,7 @@ frontend/
 ## 3. Корневые папки
 
 - **docker/**:
+
   - Содержит `Dockerfile` для PostgreSQL и скрипты для окружения.
   - Пример `docker-compose.yml`:
     ```yaml
@@ -178,6 +179,7 @@ frontend/
     ```
 
 - **docs/**:
+
   - Хранит ER-диаграмму, OpenAPI, сиквенс-диаграммы.
   - Пример: `docs/api.yaml` для `/bookings`, `/availability`.
 
@@ -196,10 +198,12 @@ frontend/
 ## Рекомендации
 
 1. **Монорепозиторий**:
+
    - Используйте монорепозиторий для упрощения разработки одним разработчиком.
    - Если проект вырастет, рассмотрите разделение на два репозитория (`avail-cascade-backend`, `avail-cascade-frontend`).
 
 2. **Backend**:
+
    - Группируйте по доменам (`booking`, `availability`) для соответствия ER-диаграмме.
    - Храните DTO и сущности внутри модулей для изоляции.
    - Используйте Prisma для `schema.prisma`:
@@ -216,6 +220,7 @@ frontend/
      ```
 
 3. **Frontend**:
+
    - Разделяйте UI по ролям (страницы `ClientDashboard`, `SpecialistSchedule`).
    - Используйте `react-router` для маршрутов:
      ```typescript
@@ -227,6 +232,7 @@ frontend/
    - Синхронизируйте типы с backend через shared types или OpenAPI.
 
 4. **Docker**:
+
    - Настройте `docker-compose.yml` для локальной разработки (PostgreSQL, backend, frontend).
    - Пример запуска:
      ```bash
@@ -234,6 +240,7 @@ frontend/
      ```
 
 5. **Git**:
+
    - Инициализируйте репозиторий:
      ```bash
      git init avail-cascade
@@ -247,15 +254,21 @@ frontend/
      ```
 
 6. **Масштабирование**:
+
    - Для новых модулей (например, `payment`) создавайте папки в `backend/src/` и `frontend/src/pages/`.
    - Храните утилиты в `backend/src/common/` и `frontend/src/utils/`.
 
 7. **Документация**:
+
    - В `README.md` опишите структуру:
+
      ```markdown
      # avail-cascade
+
      Scheduling service with cascading validation.
+
      ## Structure
+
      - `backend/`: NestJS API (booking, availability, notification).
      - `frontend/`: React UI (client, specialist, manager dashboards).
      - `docker/`: Docker configurations.

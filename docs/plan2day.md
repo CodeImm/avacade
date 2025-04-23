@@ -92,7 +92,7 @@
       type,
       channel: 'EMAIL',
       content: JSON.stringify(data),
-      status: 'PENDING'
+      status: 'PENDING',
     });
     await emailService.send(data.email, `Booking ${type}`, data);
     await db.updateNotification(notification.id, { status: 'SENT' });
@@ -117,15 +117,19 @@
     const [selectedTemplate, setSelectedTemplate] = useState(null);
     const [selectedSpecialist, setSelectedSpecialist] = useState(null);
     const [startTime, setStartTime] = useState('');
-  
+
     const handleSubmit = async () => {
       const response = await fetch('/bookings', {
         method: 'POST',
-        body: JSON.stringify({ template_id: selectedTemplate, specialist_id: selectedSpecialist, start_time })
+        body: JSON.stringify({
+          template_id: selectedTemplate,
+          specialist_id: selectedSpecialist,
+          start_time,
+        }),
       });
       if (response.ok) alert('Booking создан (PENDING)');
     };
-  
+
     return <form onSubmit={handleSubmit}>{/* Форма */}</form>;
   }
   ```
@@ -143,16 +147,16 @@
     const assignRoom = async (bookingId, roomId) => {
       await fetch(`/bookings/${bookingId}/assign-room`, {
         method: 'PATCH',
-        body: JSON.stringify({ roomId })
+        body: JSON.stringify({ roomId }),
       });
     };
-  
+
     return (
       <div>
-        {bookings.map(booking => (
+        {bookings.map((booking) => (
           <div key={booking.id}>
             <p>Booking: {booking.start_time}</p>
-            <select onChange={e => assignRoom(booking.id, e.target.value)}>
+            <select onChange={(e) => assignRoom(booking.id, e.target.value)}>
               {/* Список Room */}
             </select>
           </div>
@@ -186,7 +190,7 @@
     it('rejects Booking if Venue is closed', () => {
       const booking = createBooking({
         start_time: '2025-07-04T10:00:00',
-        end_time: '2025-07-04T11:00:00'
+        end_time: '2025-07-04T11:00:00',
       });
       expect(booking).toThrow('Venue закрыт');
     });
@@ -222,6 +226,7 @@
 
   ```markdown
   ## Бизнес-правила
+
   - Валидация Venue: Booking.start_time должен быть в пределах Availability.rules.intervals.
   - Назначение roomId: MANAGER выбирает Room из managed_venues, проверяет Availability.
   ```
@@ -260,7 +265,7 @@
       start: moment(event.start_time).toArray().slice(0, 5),
       end: moment(event.end_time).toArray().slice(0, 5),
       title: event.title,
-      description: event.description
+      description: event.description,
     });
   }
   ```

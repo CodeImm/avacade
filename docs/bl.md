@@ -9,10 +9,15 @@
     ```json
     {
       "intervals": [
-        {"start_time": "08:00", "end_time": "20:00", "days_of_week": ["MON", "TUE"], "valid_from": "2025-01-01"}
+        {
+          "start_time": "08:00",
+          "end_time": "20:00",
+          "days_of_week": ["MON", "TUE"],
+          "valid_from": "2025-01-01"
+        }
       ],
-      "exceptions": [{"date": "2025-07-04", "status": "CLOSED"}],
-      "recurrence_rule": {"frequency": "WEEKLY", "interval": 1}
+      "exceptions": [{ "date": "2025-07-04", "status": "CLOSED" }],
+      "recurrence_rule": { "frequency": "WEEKLY", "interval": 1 }
     }
     ```
 - **Шаблоны событий** (`EventTemplate`):
@@ -40,13 +45,20 @@
 ## 3. Бизнес-процессы
 
 ### 3.1. Настройка организации и объектов
+
 1. **Владелец организации**:
    - Создаёт `Organization` (например, "Йога-студия").
    - Добавляет `Venue` (например, "Студия на Ленина") и `Room` (например, "Зал 1").
    - Настраивает **Правила записи** для `Venue`:
      ```json
      {
-       "intervals": [{"start_time": "09:00", "end_time": "21:00", "days_of_week": ["MON", "TUE", "WED"]}]
+       "intervals": [
+         {
+           "start_time": "09:00",
+           "end_time": "21:00",
+           "days_of_week": ["MON", "TUE", "WED"]
+         }
+       ]
      }
      ```
    - Назначает **Менеджера** для `Venue` (добавляет `Venue.id` в `ManagerProfile.managed_venues`).
@@ -56,6 +68,7 @@
    - Добавляет исключения в **Правила записи** (например, закрытие зала на ремонт).
 
 ### 3.2. Создание **Шаблонов событий**
+
 1. **Специалист**:
    - Создаёт **Шаблоны событий**:
      - Клиентские (например, "Пробный урок йоги", `duration: 60min`, `is_bookable: true`).
@@ -66,6 +79,7 @@
    - Может запретить использование определённых `Room` для шаблона.
 
 ### 3.3. Создание **Записи**
+
 1. **Клиент**:
    - Просматривает **Шаблоны событий** и **Правила записи** **Специалиста** через UI.
    - Выбирает шаблон, специалиста, время (в пределах `Availability.rules`).
@@ -94,6 +108,7 @@
    - Получает уведомление о статусе **Записи**.
 
 ### 3.4. Создание **События** напрямую
+
 1. **Специалист**:
    - Выбирает **Шаблон событий** (свой или другой, если разрешено).
    - Указывает время, `roomId` (если требуется), тип доставки.
@@ -107,6 +122,7 @@
    - Назначает `roomId` или подтверждает использование.
 
 ### 3.5. Уведомления
+
 - **Типы**:
   - `BOOKING_ROOM_ASSIGNMENT`: **Менеджер** получает для назначения `roomId`.
   - `BOOKING_CONFIRMATION`: **Специалист** получает для подтверждения **Записи**.
@@ -119,7 +135,7 @@
     "user_id": "UUID1",
     "type": "BOOKING_ROOM_ASSIGNMENT",
     "channel": "EMAIL",
-    "content": {"booking_id": "UUID2", "venue_id": "UUID3"}
+    "content": { "booking_id": "UUID2", "venue_id": "UUID3" }
   }
   ```
 
@@ -201,28 +217,36 @@ async function createBooking(dto: CreateBookingDto) {
   if (specialist.organizationId) {
     const venue = await db.getVenueByOrganization(specialist.organizationId);
     if (!isAvailable(venue.availability, dto.start_time, dto.end_time)) {
-      throw new Error("Venue закрыт");
+      throw new Error('Venue закрыт');
     }
   }
 
   // Валидация Specialist
   if (!isAvailable(specialist.availability, dto.start_time, dto.end_time)) {
-    throw new Error("Специалист занят");
+    throw new Error('Специалист занят');
   }
 
   // Создание Booking
   const booking = await db.createBooking({
     ...dto,
-    status: "PENDING",
-    eventId: null
+    status: 'PENDING',
+    eventId: null,
   });
 
   // Уведомления
-  if (specialist.organizationId && template.delivery === "IN_PERSON") {
+  if (specialist.organizationId && template.delivery === 'IN_PERSON') {
     const manager = await db.getManagerByVenue(venue.id);
-    await notificationService.send(manager.id, "BOOKING_ROOM_ASSIGNMENT", booking);
+    await notificationService.send(
+      manager.id,
+      'BOOKING_ROOM_ASSIGNMENT',
+      booking,
+    );
   } else if (!template.is_bookable) {
-    await notificationService.send(specialist.id, "BOOKING_CONFIRMATION", booking);
+    await notificationService.send(
+      specialist.id,
+      'BOOKING_CONFIRMATION',
+      booking,
+    );
   }
 
   return booking;

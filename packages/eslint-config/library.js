@@ -1,27 +1,31 @@
-import { resolve } from "node:path";
+import onlyWarn from 'eslint-plugin-only-warn';
+import { config } from './base.js';
+import globals from 'globals';
 
 /** @type {import("eslint").Linter.Config[]} */
 export default [
-    {
-        ignores: [".*.js", "node_modules/", "dist/"],
-        plugins: ["only-warn"],
-        globals: {
-            React: true,
-            JSX: true,
-        },
-        env: {
-            node: true,
-        },
-        settings: {
-            "import/resolver": {
-                typescript: {
-                    project: resolve(process.cwd(), "tsconfig.json"),
-                },
-            },
-        },
+  ...config,
+  {
+    ignores: ['.*.js', 'node_modules/', 'dist/'],
+    plugins: {
+      'only-warn': onlyWarn,
     },
-    {
-        files: ["*.js?(x)", "*.ts?(x)"],
-        extends: ["./base.js"],
+    languageOptions: {
+      globals: {
+        ...globals.node,
+        React: 'readonly',
+        JSX: 'readonly',
+      },
     },
+    settings: {
+      'import/resolver': {
+        typescript: {
+          project: true,
+        },
+      },
+    },
+  },
+  {
+    files: ['*.js?(x)', '*.ts?(x)'],
+  },
 ];
