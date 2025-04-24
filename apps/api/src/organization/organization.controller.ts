@@ -9,8 +9,7 @@ import {
 } from '@nestjs/common';
 import { OrganizationService } from './organization.service';
 
-import { CreateOrganizationDto } from '@repo/api/organization/dto/create-organization.dto';
-import { UpdateOrganizationDto } from '@repo/api/organization/dto/update-organization.dto';
+import type { CreateOrganizationDto, UpdateOrganizationDto } from '@repo/api';
 
 @Controller('organization')
 export class OrganizationController {
@@ -28,7 +27,7 @@ export class OrganizationController {
 
   @Get(':id')
   findOne(@Param('id') id: string) {
-    return this.organizationService.findOne(+id);
+    return this.organizationService.findOne(id);
   }
 
   @Patch(':id')
@@ -36,11 +35,11 @@ export class OrganizationController {
     @Param('id') id: string,
     @Body() updateOrganizationDto: UpdateOrganizationDto,
   ) {
-    return this.organizationService.update(+id, updateOrganizationDto);
+    return this.organizationService.update(id, updateOrganizationDto);
   }
 
   @Delete(':id')
   remove(@Param('id') id: string) {
-    return this.organizationService.remove(+id);
+    return this.organizationService.remove(id);
   }
 }

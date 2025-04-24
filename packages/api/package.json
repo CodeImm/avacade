@@ -16,13 +16,6 @@
   "publishConfig": {
     "access": "public"
   },
-  "typesVersions": {
-    "*": {
-      "*": [
-        "src/*"
-      ]
-    }
-  },
   "exports": {
     ".": {
       "import": "./dist/index.js",

@@ -1,7 +1,6 @@
 {
   "name": "@repo/db",
   "version": "0.0.0",
-  "main": "./src/index.ts",
   "types": "./src/index.ts",
   "scripts": {
     "db:generate": "prisma generate",
@@ -15,6 +14,7 @@
     "@prisma/client": "6.6.0"
   },
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./generated/prisma": "./generated/prisma/index.js"
   }
 }
