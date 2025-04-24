@@ -27,6 +27,7 @@
     }
   },
   "dependencies": {
+    "@nestjs/swagger": "^11.1.5",
     "@repo/db": "workspace:*",
     "class-validator": "^0.14.1"
   },

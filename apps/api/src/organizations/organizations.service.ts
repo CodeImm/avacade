@@ -53,7 +53,7 @@ export class OrganizationsService {
     });
   }
 
-  async remove(id: string): Promise<Organization> {
+  async remove(id: string): Promise<void> {
     const organization = await this.prisma.organization.findUnique({
       where: { id },
     });
@@ -62,7 +62,7 @@ export class OrganizationsService {
       throw new NotFoundException(`Organization with ID ${id} not found`);
     }
 
-    return this.prisma.organization.delete({
+    await this.prisma.organization.delete({
       where: { id },
     });
   }
