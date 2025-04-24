@@ -115,7 +115,8 @@ entity ModeratorProfile {
 
 entity Organization {
   +id : uuid
-  +title : string
+  +name : string
+  --
   +description : text
   +logo_url : string
   +website : string
