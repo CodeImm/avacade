@@ -154,8 +154,8 @@ entity Space {
   +id : uuid
   +venueId : uuid
   +name : string
-  +capacity : int
-  +floor : int
+  +capacity? : int
+  +floor? : int
   --
   +created_at : datetime
   +updated_at : datetime
