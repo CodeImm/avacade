@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 
 import type {
   CreateOrganizationDto,
@@ -14,6 +18,16 @@ export class OrganizationsService {
   async create(
     createOrganizationDto: CreateOrganizationDto,
   ): Promise<Organization> {
+    const existing = await this.prisma.organization.findFirst({
+      where: { name: createOrganizationDto.name },
+    });
+
+    if (existing) {
+      throw new ConflictException(
+        `Organization with name ${createOrganizationDto.name} already exists`,
+      );
+    }
+
     return this.prisma.organization.create({
       data: createOrganizationDto,
     });

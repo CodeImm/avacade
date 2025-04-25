@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { CreateVenueDto, UpdateVenueDto, Venue } from '@repo/api';
 
@@ -14,6 +18,16 @@ export class VenuesService {
     if (!organization) {
       throw new NotFoundException(
         `Organization with ID ${createVenueDto.organizationId} not found`,
+      );
+    }
+
+    const existingVenue = await this.prisma.venue.findFirst({
+      where: { name: createVenueDto.name },
+    });
+
+    if (existingVenue) {
+      throw new ConflictException(
+        `Venue with name ${createVenueDto.name} already exists`,
       );
     }
 
