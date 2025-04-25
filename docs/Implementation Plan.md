@@ -3,18 +3,18 @@
 Стек: NestJS, Prisma, PostgreSQL. Разработка ведется одним разработчиком.
 
 ## 1. Проектирование и подготовка
-- **Модели данных**: Определить сущности (`Organization`, `Venue`, `Room`, `Specialist`, `Availability`, `Event`) для Prisma.
+- **Модели данных**: Определить сущности (`Organization`, `Venue`, `Space`, `Specialist`, `Availability`, `Event`) для Prisma.
 - **API**: Спроектировать REST эндпоинты (CRUD для сущностей, проверка доступности).
 - **Окружение**: Настроить NestJS, Prisma, PostgreSQL, установить зависимости (`rrule`, `date-fns`, `class-validator`).
 - **Библиотеки**: Использовать `rrule.js` для повторяющихся правил, `date-fns` для дат.
 
 ## 2. Разработка базовой структуры
-- Создать модули NestJS для каждой сущности (`organizations`, `venues`, `rooms`, `specialists`, `availabilities`, `events`).
+- Создать модули NestJS для каждой сущности (`organizations`, `venues`, `spaces`, `specialists`, `availabilities`, `events`).
 - Настроить Prisma (`PrismaService`) для работы с PostgreSQL.
 - Реализовать CRUD для всех сущностей с DTO и валидацией (`class-validator`).
 
 ## 3. Каскадная валидация
-- Реализовать проверку доступности с приоритетами: Venue → Room → Specialist.
+- Реализовать проверку доступности с приоритетами: Venue → Space → Specialist.
 - Использовать `rrule.js` для обработки `recurrenceRule`, `date-fns` для временных интервалов.
 - Оптимизировать запросы с индексами в PostgreSQL.
 

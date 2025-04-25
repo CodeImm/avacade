@@ -11,7 +11,7 @@
 | **Интеграция с API**                   | Подходит для JSON-API, но структура громоздка. Требует парсинга для валидации `Availability`.                                                                                                                                                                                                                                                | Идеально для REST API. Простая сериализация/десериализация в `Availability.rules`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | **Поддержка часовых поясов**           | Полная поддержка через `TZID` и ISO 8601.                                                                                                                                                                                                                                                                                                    | Поддержка через явное указание `timezone` (например, в `Venue.timezone`) или ISO 8601.                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | **Совместимость с внешними системами** | Высокая: экспорт в Google Calendar, Outlook через iCalendar.                                                                                                                                                                                                                                                                                 | Низкая: требует кастомного преобразования в iCalendar для экспорта.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-| **Применение в вашем сервисе**         | Подходит для хранения `Availability` и экспорта `Event` в календари. Сложнее для каскадной валидации (`Venue` → `Room` → `Specialist`).                                                                                                                                                                                                      | Идеально для каскадной валидации и назначения `roomId`. Простота интеграции с `Booking`, `ManagerProfile`.                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| **Применение в вашем сервисе**         | Подходит для хранения `Availability` и экспорта `Event` в календари. Сложнее для каскадной валидации (`Venue` → `Space` → `Specialist`).                                                                                                                                                                                                      | Идеально для каскадной валидации и назначения `spaceId`. Простота интеграции с `Booking`, `ManagerProfile`.                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | **Производительность**                 | Ниже из-за сложной структуры и парсинга.                                                                                                                                                                                                                                                                                                     | Выше благодаря плоской структуре и лёгкой валидации.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | **Пример валидации**                   | `javascript<br>const ical = require('ical.js');<br>const comp = ical.parse(jCalData);<br>const vfreebusy = comp.getFirstSubcomponent('vfreebusy');<br>const isAvailable = vfreebusy.isAvailable(startTime, endTime);<br>`                                                                                                                    | `javascript<br>const moment = require('moment');<br>function isAvailable(availability, startTime, endTime) {<br>  return availability.intervals.some(interval => {<br>    return moment(startTime).isBetween(<br>      interval.start_time,<br>      interval.end_time<br>    ) && interval.days_of_week.includes(moment(startTime).format('ddd'));<br>  });<br>}<br>`                                                                                                                                                                                     |
 
@@ -28,7 +28,7 @@
   - Сложная структура (многоуровневые массивы).
   - Требует библиотек для парсинга (`ical.js`, `jcal.js`).
   - Избыточна для простых интервалов доступности.
-  - Сложнее реализовать каскадную валидацию (`Venue` → `Room` → `Specialist`).
+  - Сложнее реализовать каскадную валидацию (`Venue` → `Space` → `Specialist`).
 
 ### JSON Time Slots
 
@@ -37,7 +37,7 @@
   - Легко валидировать без сложных библиотек.
   - Гибкость для кастомных исключений и правил.
   - Прямая интеграция с `Availability.rules` и REST API.
-  - Оптимально для каскадной валидации и назначения `roomId` менеджером.
+  - Оптимально для каскадной валидации и назначения `spaceId` менеджером.
 - **Минусы**:
   - Не стандартизирован, меньше совместимости с внешними системами.
   - Ограниченная поддержка сложных рекурсий (хотя RRule компенсирует).
@@ -47,10 +47,10 @@
 
 ### Требования
 
-- **Единый формат для `Availability`**: Хранить правила для `Venue`, `Room`, `Specialist` в `Availability.rules`.
-- **Каскадная валидация**: Проверять `Venue`, затем `Room` (после назначения `MANAGER`), затем `Specialist`.
-- **Назначение `roomId`**: `MANAGER` проверяет `Availability` для `Room` в `managed_venues`.
-- **Двойная роль специалиста**: Поддержка независимых специалистов (без `Venue`/`Room`) и специалистов в организации.
+- **Единый формат для `Availability`**: Хранить правила для `Venue`, `Space`, `Specialist` в `Availability.rules`.
+- **Каскадная валидация**: Проверять `Venue`, затем `Space` (после назначения `MANAGER`), затем `Specialist`.
+- **Назначение `spaceId`**: `MANAGER` проверяет `Availability` для `Space` в `managed_venues`.
+- **Двойная роль специалиста**: Поддержка независимых специалистов (без `Venue`/`Space`) и специалистов в организации.
 - **Интеграция с `Booking`**: Валидация при создании `Booking`, уведомление `MANAGER`, создание `Event`.
 
 ### Оценка
@@ -64,7 +64,7 @@
     - Сложная структура усложняет валидацию `Availability` при создании `Booking`.
     - Требует дополнительных библиотек для парсинга, что увеличивает сложность API.
     - Избыточна для простых интервалов (например, `Venue` открыто с 8:00 до 20:00).
-    - Менее интуитивно для назначения `roomId` (нужно парсить `vfreebusy` для `Room`).
+    - Менее интуитивно для назначения `spaceId` (нужно парсить `vfreebusy` для `Space`).
   - **Пример интеграции**:
     ```json
     {
@@ -84,7 +84,7 @@
   - **Плюсы для сервиса**:
     - Простая структура идеальна для хранения в `Availability.rules`.
     - Легко валидировать интервалы и исключения при создании `Booking`.
-    - Интуитивно для `MANAGER` при проверке `Room` доступности.
+    - Интуитивно для `MANAGER` при проверке `Space` доступности.
     - Прямая интеграция с `ManagerProfile` и каскадной валидацией.
     - Поддерживает двойную роль специалиста (просто указать `organizationId: null`).
   - **Минусы для сервиса**:
@@ -119,11 +119,11 @@
 **Выбор: JSON Time Slots**
 
 - **Обоснование**:
-  - **Простота**: JSON Time Slots имеет плоскую, интуитивную структуру, что упрощает валидацию `Availability` для `Venue`, `Room`, `Specialist` при создании `Booking`.
-  - **Каскадная валидация**: Легко проверять интервалы и исключения в порядке `Venue` → `Room` → `Specialist`, особенно для назначения `roomId` менеджером.
-  - **Интеграция**: Прямо встраивается в `Availability.rules` без сложного парсинга, что снижает затраты на разработку API (`POST /bookings`, `PATCH /bookings/:id/assign-room`).
+  - **Простота**: JSON Time Slots имеет плоскую, интуитивную структуру, что упрощает валидацию `Availability` для `Venue`, `Space`, `Specialist` при создании `Booking`.
+  - **Каскадная валидация**: Легко проверять интервалы и исключения в порядке `Venue` → `Space` → `Specialist`, особенно для назначения `spaceId` менеджером.
+  - **Интеграция**: Прямо встраивается в `Availability.rules` без сложного парсинга, что снижает затраты на разработку API (`POST /bookings`, `PATCH /bookings/:id/assign-space`).
   - **Гибкость**: Поддерживает исключения и рекурсии через `recurrence_rule` (RRule-совместимый), что достаточно для большинства сценариев сервиса.
-  - **Двойная роль специалиста**: Просто указать `organizationId: null` для независимых специалистов, пропуская проверку `Venue`/`Room`.
+  - **Двойная роль специалиста**: Просто указать `organizationId: null` для независимых специалистов, пропуская проверку `Venue`/`Space`.
   - **Производительность**: Меньшая вычислительная сложность при валидации по сравнению с jCal.
 - **Устранение минусов**:
 
@@ -151,8 +151,8 @@
 
 - **Почему не jCal?**
   - jCal избыточно сложен для валидации простых интервалов доступности (например, часы работы `Venue`).
-  - Требует библиотек для парсинга, что увеличивает сложность API и UI (например, для `MANAGER` при выборе `Room`).
-  - Меньше интуитивности для каскадной валидации и назначения `roomId`.
+  - Требует библиотек для парсинга, что увеличивает сложность API и UI (например, для `MANAGER` при выборе `Space`).
+  - Меньше интуитивности для каскадной валидации и назначения `spaceId`.
   - Преимущество экспорта в iCalendar не критично, так как JSON Time Slots можно конвертировать в `.ics` при необходимости.
 
 ## Реализация в вашем сервисе
@@ -164,7 +164,7 @@
   entity Availability {
     +id : uuid
     +venueId : uuid // nullable
-    +roomId : uuid // nullable
+    +spaceId : uuid // nullable
     +specialistId : uuid // nullable
     +organizationId : uuid // nullable
     +rules : json // JSON Time Slots
@@ -202,7 +202,7 @@
 
 - **Процесс**:
   1. **Venue**: Проверяется `Availability.rules` для `venueId` при создании `Booking`.
-  2. **Room**: Проверяется `Availability.rules` для `roomId` менеджером при назначении.
+  2. **Space**: Проверяется `Availability.rules` для `spaceId` менеджером при назначении.
   3. **Specialist**: Проверяется `Availability.rules` для `specialistId` при создании `Booking`.
 - **Пример кода**:
 
@@ -247,18 +247,18 @@
   }
   ```
 
-### Назначение `roomId`
+### Назначение `spaceId`
 
 - **Процесс**:
   - Клиент создаёт `Booking` (`status: PENDING`, `eventId: null`).
   - Система уведомляет `MANAGER` через `Notification` (`BOOKING_ROOM_ASSIGNMENT`).
-  - `MANAGER` проверяет `Availability` для `Room` в `managed_venues`, выбирает `roomId`.
-  - Создаётся `Event` с `room_id`, обновляется `Booking` (`eventId`, `status: PENDING` или `CONFIRMED`).
+  - `MANAGER` проверяет `Availability` для `Space` в `managed_venues`, выбирает `spaceId`.
+  - Создаётся `Event` с `space_id`, обновляется `Booking` (`eventId`, `status: PENDING` или `CONFIRMED`).
 - **Пример API**:
   ```json
-  PATCH /bookings/:id/assign-room
+  PATCH /bookings/:id/assign-space
   {
-    "roomId": "UUID3"
+    "spaceId": "UUID3"
   }
   ```
 
@@ -270,8 +270,8 @@
    - `moment.js` или `date-fns` для работы с датами.
 3. **API**:
    - `POST /bookings`: Создаёт `Booking` с валидацией `Venue`, `Specialist`.
-   - `PATCH /bookings/:id/assign-room`: Назначение `roomId` с валидацией `Room`.
-   - `GET /availability`: Возвращает доступные слоты для `Venue`, `Room`, `Specialist`.
+   - `PATCH /bookings/:id/assign-space`: Назначение `spaceId` с валидацией `Space`.
+   - `GET /availability`: Возвращает доступные слоты для `Venue`, `Space`, `Specialist`.
 4. **Экспорт**:
    - Реализуйте конвертацию JSON Time Slots в iCalendar для экспорта `Event`:
      ```javascript
@@ -295,8 +295,8 @@
      ```
 5. **UI**:
    - Календарь для клиента с доступными слотами.
-   - Панель для `MANAGER` с `Booking` в статусе `PENDING` и выбором `Room`.
+   - Панель для `MANAGER` с `Booking` в статусе `PENDING` и выбором `Space`.
 6. **Тестирование**:
-   - Клиент создаёт `Booking`, `MANAGER` назначает `roomId`.
-   - Независимый специалист создаёт `Booking` без `Venue`/`Room`.
+   - Клиент создаёт `Booking`, `MANAGER` назначает `spaceId`.
+   - Независимый специалист создаёт `Booking` без `Venue`/`Space`.
    - Валидация отклоняет `Booking`, если `Venue` закрыт.

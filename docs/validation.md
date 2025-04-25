@@ -3,7 +3,7 @@
 ## 1. Требования к данным
 
 ### 1.1. Общие требования
-- **Цель**: Хранить и управлять расписанием (`Availability`) для Специалистов, Venue, и Room, обеспечивая гибкость и поддержку каскадной валидации.
+- **Цель**: Хранить и управлять расписанием (`Availability`) для Специалистов, Venue, и Space, обеспечивая гибкость и поддержку каскадной валидации.
 - **Хранение**: JSONB в PostgreSQL (поле `Availability.rules`) для динамической структуры и поддержки запросов.
 - **Совместимость**:
   - Формат должен поддерживать рекуррентные правила (например, еженедельные слоты), совместимые с библиотекой `rrule`.
@@ -19,8 +19,8 @@
 - **Venue**:
   - Место внутри Организации (например, филиал клиники).
   - Имеет часы работы (например, 9:00–17:00).
-  - Ограничивает доступность Специалистов и Room.
-- **Room**:
+  - Ограничивает доступность Специалистов и Space.
+- **Space**:
   - Помещение внутри Venue (например, кабинет).
   - Занятость формируется из объединения времени **Event** всех Специалистов.
   - Пример: Кабинет занят с 10:00 до 12:00 из-за консультации.
@@ -29,15 +29,15 @@
   - Может работать в нескольких Организациях.
   - Личное расписание имеет низший приоритет.
 - **Availability**:
-  - Хранит расписание для Специалиста, Venue, или Room.
+  - Хранит расписание для Специалиста, Venue, или Space.
   - Использует JSONB для поля `rules`.
-  - Связана с Organization, Venue, Room, Specialist через ID.
+  - Связана с Organization, Venue, Space, Specialist через ID.
 - **Booking**:
-  - Бронирование времени Специалиста в конкретном Room и Venue.
+  - Бронирование времени Специалиста в конкретном Space и Venue.
   - Требует валидации доступности.
 - **Event**:
-  - Событие, занимающее Room (например, консультация).
-  - Влияет на занятость Room.
+  - Событие, занимающее Space (например, консультация).
+  - Влияет на занятость Space.
 
 ### 1.3. Функциональные требования
 - **Хранение расписания**:
@@ -47,16 +47,16 @@
 - **Каскадная валидация**:
   - Проверка бронирования (`Booking`) или события (`Event`) по приоритетам:
     1. Часы работы Venue.
-    2. Занятость Room (на основе Event).
+    2. Занятость Space (на основе Event).
     3. Личное расписание Специалиста.
   - Учёт исключений (например, Venue закрыто в праздник).
 - **Множественные Организации**:
   - Специалист может иметь расписание в разных Организациях.
-  - Расписание Специалиста в Организации связано с Venue и Room.
+  - Расписание Специалиста в Организации связано с Venue и Space.
 - **Пример сценария**:
   - Специалист доступен: Пн, 8:00–20:00.
   - Venue работает: Пн, 9:00–17:00.
-  - Room занят: Пн, 10:00–12:00 (Event).
+  - Space занят: Пн, 10:00–12:00 (Event).
   - Итоговая доступность: Пн, 9:00–10:00 и 12:00–17:00.
 - **Индексация**:
   - JSONB должен поддерживать GIN-индексы для запросов по `intervals`, `days_of_week`, `exceptions`.
@@ -238,7 +238,7 @@
   }
   ```
 
-- **Расписание Room**:
+- **Расписание Space**:
 
   ```json
   {
@@ -301,7 +301,7 @@ export interface TimeSlot {
 ### 3.1. Цель валидации
 - Убедиться, что запрашиваемое время для **Booking** или **Event** попадает в доступные слоты, учитывая приоритеты:
   1. Часы работы **Venue**.
-  2. Занятость **Room** (на основе Event).
+  2. Занятость **Space** (на основе Event).
   3. Личное расписание **Специалиста**.
 
 ### 3.2. Входные данные
@@ -309,7 +309,7 @@ export interface TimeSlot {
   - `specialistId`: UUID Специалиста.
   - `organizationId`: UUID Организации.
   - `venueId`: UUID Venue.
-  - `roomId`: UUID Room.
+  - `spaceId`: UUID Space.
   - `startTime`: Дата и время начала (ISO-8601, например, `"2025-04-28T09:00:00Z"`).
   - `endTime`: Дата и время конца (`"2025-04-28T10:00:00Z"`).
 
@@ -317,7 +317,7 @@ export interface TimeSlot {
 1. **Получение расписания**:
    - Найти `Availability` для:
      - Venue (`context: "VENUE"`, `venueId`, `organizationId`).
-     - Room (`context: "ROOM"`, `roomId`, `organizationId`).
+     - Space (`context: "ROOM"`, `spaceId`, `organizationId`).
      - Specialist (`context: "SPECIALIST"`, `specialistId`, `organizationId` или `organizationId: null`).
    - Если расписание отсутствует, вернуть ошибку (`"Venue unavailable"`, `"Specialist unavailable"`).
 
@@ -329,13 +329,13 @@ export interface TimeSlot {
    - Проверить `recurrence_rule` (если есть) с помощью `rrule`.
    - Если время недоступно, вернуть ошибку (`"Time outside Venue hours"`).
 
-3. **Проверка Room**:
-   - Получить все `Event` для Room, пересекающиеся с `startTime`–`endTime`:
+3. **Проверка Space**:
+   - Получить все `Event` для Space, пересекающиеся с `startTime`–`endTime`:
      - Условие: `event.startTime <= endTime AND event.endTime >= startTime`.
-   - Если есть пересечения, вернуть ошибку (`"Room is occupied"`).
-   - Проверить `Availability` Room (если есть):
+   - Если есть пересечения, вернуть ошибку (`"Space is occupied"`).
+   - Проверить `Availability` Space (если есть):
      - Аналогично Venue, проверить `intervals`, `exceptions`, `recurrence_rule`.
-     - Если время недоступно, вернуть ошибку (`"Time outside Room availability"`).
+     - Если время недоступно, вернуть ошибку (`"Time outside Space availability"`).
 
 4. **Проверка Specialist (низший приоритет)**:
    - Проверить `Availability` Специалиста в контексте `organizationId` (если есть).
@@ -352,7 +352,7 @@ export interface TimeSlot {
   - `specialistId`: `"uuid1"`.
   - `organizationId`: `"uuid2"`.
   - `venueId`: `"uuid3"`.
-  - `roomId`: `"uuid4"`.
+  - `spaceId`: `"uuid4"`.
   - `startTime`: `"2025-04-28T09:30:00Z"` (понедельник).
   - `endTime`: `"2025-04-28T10:30:00Z"`.
 - **Данные Availability**:
@@ -364,7 +364,7 @@ export interface TimeSlot {
       "exceptions": []
     }
     ```
-  - Room: Нет `Availability`, но есть Event с 10:00–11:00.
+  - Space: Нет `Availability`, но есть Event с 10:00–11:00.
   - Specialist:
     ```json
     {
@@ -376,13 +376,13 @@ export interface TimeSlot {
     ```
 - **Шаги валидации**:
   1. **Venue**: 9:30–10:30 попадает в 9:00–17:00 → `true`.
-  2. **Room**: Event с 10:00–11:00 пересекается с 9:30–10:30 → ошибка (`"Room is occupied"`).
-  3. **Specialist**: Не проверяется, так как Room недоступен.
-- **Результат**: Ошибка (`"Room is occupied"`).
+  2. **Space**: Event с 10:00–11:00 пересекается с 9:30–10:30 → ошибка (`"Space is occupied"`).
+  3. **Specialist**: Не проверяется, так как Space недоступен.
+- **Результат**: Ошибка (`"Space is occupied"`).
 
 ### 3.5. Правила обработки ошибок
 - Если Venue недоступно: `"Time outside Venue hours"`.
-- Если Room занят: `"Room is occupied"`.
+- Если Space занят: `"Space is occupied"`.
 - Если Специалист недоступен: `"Time outside Specialist availability"`.
 - Если данные отсутствуют: `"Venue/Specialist unavailable"`.
 
@@ -419,13 +419,13 @@ export interface TimeSlot {
 
 ### 4.2. Требования к каскадной валидации
 - **Приоритеты**:
-  - Venue > Room > Specialist.
+  - Venue > Space > Specialist.
 - **Проверки**:
   - Venue: Часы работы и исключения.
-  - Room: Отсутствие пересечений с Event, проверка `Availability` (если есть).
+  - Space: Отсутствие пересечений с Event, проверка `Availability` (если есть).
   - Specialist: Личное расписание или расписание в Организации.
 - **Ошибки**:
-  - Чёткие сообщения для каждого уровня (Venue, Room, Specialist).
+  - Чёткие сообщения для каждого уровня (Venue, Space, Specialist).
 - **Производительность**:
   - Использовать индексы для JSONB и Event.
   - Минимизировать количество запросов (например, выборка всех данных за один запрос).
@@ -433,11 +433,11 @@ export interface TimeSlot {
 ### 4.3. Интеграция с проектом
 - **Prisma**:
   - Поле `rules` типа `Json` в `Availability`.
-  - Связки через `organizationId`, `venueId`, `roomId`, `specialistId`.
+  - Связки через `organizationId`, `venueId`, `spaceId`, `specialistId`.
 - **Shared**:
   - Тип `TimeSlot` для синхронизации backend и frontend.
 - **API**:
-  - Эндпоинт `POST /bookings` принимает `specialistId`, `organizationId`, `venueId`, `roomId`, `startTime`, `endTime`.
+  - Эндпоинт `POST /bookings` принимает `specialistId`, `organizationId`, `venueId`, `spaceId`, `startTime`, `endTime`.
   - Возвращает ошибки валидации в формате JSON.
 
 ---
@@ -466,7 +466,7 @@ export interface TimeSlot {
     ]
   }
   ```
-- **Room** (`uuid4`):
+- **Space** (`uuid4`):
   - Нет `Availability`, но есть Event:
     - `startTime`: `"2025-04-28T10:00:00Z"`, `endTime`: `"2025-04-28T12:00:00Z"`.
 - **Specialist** (`uuid1`, в Организации `uuid2`):
@@ -493,9 +493,9 @@ export interface TimeSlot {
 
 ### 5.3. Валидация
 1. **Venue**: 9:30–10:30 в 9:00–17:00, не 4 июля → `true`.
-2. **Room**: Пересекается с Event (10:00–12:00) → `false`.
-3. **Specialist**: Не проверяется из-за ошибки Room.
-4. **Результат**: Ошибка (`"Room is occupied"`).
+2. **Space**: Пересекается с Event (10:00–12:00) → `false`.
+3. **Specialist**: Не проверяется из-за ошибки Space.
+4. **Результат**: Ошибка (`"Space is occupied"`).
 
 ---
 
@@ -524,4 +524,4 @@ export interface TimeSlot {
 
 ## Заключение
 
-**Формат данных** для `Availability.rules` включает поля `context`, `organizationId`, `intervals`, `exceptions`, `recurrence_rule`, что обеспечивает гибкость, поддержку приоритетов, и совместимость с `rrule`. **Каскадная валидация** проверяет Venue, Room, и Specialist по приоритетам, учитывая часы работы, занятость Event, и личное расписание. Требования оптимизированы для JSONB, Prisma, и одиночной разработки. Если нужно уточнить детали (например, формат Event, API-ответы, дополнительные сценарии), напишите, и я дополню!
+**Формат данных** для `Availability.rules` включает поля `context`, `organizationId`, `intervals`, `exceptions`, `recurrence_rule`, что обеспечивает гибкость, поддержку приоритетов, и совместимость с `rrule`. **Каскадная валидация** проверяет Venue, Space, и Specialist по приоритетам, учитывая часы работы, занятость Event, и личное расписание. Требования оптимизированы для JSONB, Prisma, и одиночной разработки. Если нужно уточнить детали (например, формат Event, API-ответы, дополнительные сценарии), напишите, и я дополню!

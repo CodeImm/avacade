@@ -49,7 +49,7 @@ backend/
 │   │   ├── notification.module.ts
 │   │   └── dtos/
 │   │       └── notification.dto.ts
-│   ├── venue/                # Управление Venue, Room, Organization
+│   ├── venue/                # Управление Venue, Space, Organization
 │   │   ├── venue.controller.ts
 │   │   ├── venue.service.ts
 │   │   ├── venue.module.ts
@@ -78,12 +78,12 @@ backend/
 ### Пояснения
 
 - **Модули**: Каждый домен (`auth`, `availability`, `booking`) изолирован, что упрощает масштабирование и поддержку.
-- **Prisma**: `schema.prisma` отражает ER-диаграмму (`Availability`, `Booking`, `Venue`, `Room`).
+- **Prisma**: `schema.prisma` отражает ER-диаграмму (`Availability`, `Booking`, `Venue`, `Space`).
   ```prisma
   model Availability {
     id            String   @id @default(uuid())
     venue_id      String?
-    room_id       String?
+    space_id       String?
     specialist_id String?
     rules         Json
   }

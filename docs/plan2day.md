@@ -2,7 +2,7 @@
 
 ## Цели
 
-- Реализовать backend и frontend для ключевых процессов (создание `Booking`, назначение `roomId`, подтверждение).
+- Реализовать backend и frontend для ключевых процессов (создание `Booking`, назначение `spaceId`, подтверждение).
 - Обеспечить интеграцию с базой данных, API и уведомлениями.
 - Провести тестирование и документирование.
 - Подготовить систему к масштабированию (новые функции, экспорт в календари).
@@ -19,9 +19,9 @@
   - Создать таблицы на основе ER-диаграммы (`User`, `Availability`, `Booking`, `Event`, etc.).
   - Использовать SQL (например, PostgreSQL) или NoSQL (MongoDB, если JSON Time Slots предпочтительнее).
   - Настроить индексы для производительности:
-    - `Availability`: индексы на `venueId`, `roomId`, `specialistId`, `organizationId`.
+    - `Availability`: индексы на `venueId`, `spaceId`, `specialistId`, `organizationId`.
     - `Booking`: индексы на `eventId`, `specialist_id`, `status`.
-    - `Event`: индексы на `room_id`, `specialist_id`, `start_time`, `end_time`.
+    - `Event`: индексы на `space_id`, `specialist_id`, `start_time`, `end_time`.
   - Реализовать миграции (например, с помощью Sequelize, TypeORM, или Flyway).
 - **Пример (PostgreSQL)**:
 
@@ -29,7 +29,7 @@
   CREATE TABLE availability (
     id UUID PRIMARY KEY,
     venue_id UUID,
-    room_id UUID,
+    space_id UUID,
     specialist_id UUID,
     organization_id UUID,
     rules JSONB NOT NULL,
@@ -46,9 +46,9 @@
   - Использовать фреймворк (Node.js/Express, Python/FastAPI, Java/Spring).
   - Эндпоинты:
     - `POST /bookings`: Создание `Booking` с каскадной валидацией.
-    - `PATCH /bookings/:id/assign-room`: Назначение `roomId` менеджером.
+    - `PATCH /bookings/:id/assign-space`: Назначение `spaceId` менеджером.
     - `PATCH /bookings/:id/confirm`: Подтверждение специалистом.
-    - `GET /availability`: Доступные слоты для `Venue`, `Room`, `Specialist`.
+    - `GET /availability`: Доступные слоты для `Venue`, `Space`, `Specialist`.
     - `POST /notifications`: Отправка уведомлений.
   - Реализовать валидацию `Availability` с использованием `rrule.js` и `moment.js`.
 - **Пример (OpenAPI)**:
@@ -138,16 +138,16 @@
 
 - **Шаги**:
   - Создать панель с `Booking` в статусе `PENDING` для `managed_venues`.
-  - Реализовать выбор `Room` с фильтрацией по `Availability` (`GET /availability?roomId=UUID`).
-  - Добавить кнопку для назначения `roomId` (`PATCH /bookings/:id/assign-room`).
+  - Реализовать выбор `Space` с фильтрацией по `Availability` (`GET /availability?spaceId=UUID`).
+  - Добавить кнопку для назначения `spaceId` (`PATCH /bookings/:id/assign-space`).
 - **Пример**:
 
   ```jsx
   function ManagerDashboard({ bookings }) {
-    const assignRoom = async (bookingId, roomId) => {
-      await fetch(`/bookings/${bookingId}/assign-room`, {
+    const assignSpace = async (bookingId, spaceId) => {
+      await fetch(`/bookings/${bookingId}/assign-space`, {
         method: 'PATCH',
-        body: JSON.stringify({ roomId }),
+        body: JSON.stringify({ spaceId }),
       });
     };
 
@@ -156,8 +156,8 @@
         {bookings.map((booking) => (
           <div key={booking.id}>
             <p>Booking: {booking.start_time}</p>
-            <select onChange={(e) => assignRoom(booking.id, e.target.value)}>
-              {/* Список Room */}
+            <select onChange={(e) => assignSpace(booking.id, e.target.value)}>
+              {/* Список Space */}
             </select>
           </div>
         ))}
@@ -180,8 +180,8 @@
 #### 3.1. Юнит-тесты
 
 - **Шаги**:
-  - Тестировать валидацию `Availability` (Venue, Room, Specialist).
-  - Проверить логику создания `Booking` и назначения `roomId`.
+  - Тестировать валидацию `Availability` (Venue, Space, Specialist).
+  - Проверить логику создания `Booking` и назначения `spaceId`.
   - Использовать Jest, Mocha, или pytest.
 - **Пример**:
 
@@ -200,7 +200,7 @@
 #### 3.2. Интеграционные тесты
 
 - **Шаги**:
-  - Тестировать API-эндпоинты (`POST /bookings`, `PATCH /bookings/:id/assign-room`).
+  - Тестировать API-эндпоинты (`POST /bookings`, `PATCH /bookings/:id/assign-space`).
   - Проверить уведомления (`NotificationService`).
   - Использовать Postman или суперинтеграционные тесты.
 
@@ -208,8 +208,8 @@
 
 - **Шаги**:
   - Тестировать сценарии:
-    - Клиент создаёт `Booking`, менеджер назначает `roomId`, специалист подтверждает.
-    - Независимый специалист создаёт `Booking` без `Venue`/`Room`.
+    - Клиент создаёт `Booking`, менеджер назначает `spaceId`, специалист подтверждает.
+    - Независимый специалист создаёт `Booking` без `Venue`/`Space`.
   - Использовать Cypress, Selenium.
 
 ### 4. Документирование (2-3 дня)
@@ -228,14 +228,14 @@
   ## Бизнес-правила
 
   - Валидация Venue: Booking.start_time должен быть в пределах Availability.rules.intervals.
-  - Назначение roomId: MANAGER выбирает Room из managed_venues, проверяет Availability.
+  - Назначение spaceId: MANAGER выбирает Space из managed_venues, проверяет Availability.
   ```
 
 #### 4.2. Пользовательская документация
 
 - **Шаги**:
   - Создать гайды для клиентов, менеджеров, специалистов.
-  - Описать, как создавать `Booking`, назначать `roomId`, подтверждать.
+  - Описать, как создавать `Booking`, назначать `spaceId`, подтверждать.
   - Хранить в Help Center.
 
 ### 5. Масштабирование и улучшения (5-10 дней)
@@ -252,7 +252,7 @@
 #### 5.2. Новые функции
 
 - **Шаги**:
-  - **Автоматическое назначение** `Room`: Предлагать `Room` для `MANAGER` на основе `Availability` и `Room.capacity`.
+  - **Автоматическое назначение** `Space`: Предлагать `Space` для `MANAGER` на основе `Availability` и `Space.capacity`.
   - **Экспорт в iCalendar**: Конвертировать `Event` и `Availability` в `.ics` (как в примере JSON Time Slots).
   - **Платежи**: Добавить сущность `Payment` для платных `Booking`.
   - **RBAC (Role-Based Access Control)**: Ограничить доступ к API на основе `Role` (`ADMIN`, `MANAGER`).

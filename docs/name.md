@@ -104,7 +104,7 @@
 26. **OrgScheduler** (Organization Scheduler)
 27. **TeamAgenda**
 28. **VenueSync**
-29. **RoomManager**
+29. **SpaceManager**
 30. **BookEazy** (Booking + Easy)
 
 Какой стиль вам ближе? Можно доработать названия в нужном направлении.
@@ -199,7 +199,7 @@ Cascade или SlotFlow — оба отражают ключевую механ�
 ### 🌊 **Метафоры потоков и уровней**
 
 6. **FlowChain** — цепочка проверок.
-7. **LayerBook** — бронирование через «слои» (Venue → Room → Specialist).
+7. **LayerBook** — бронирование через «слои» (Venue → Space → Specialist).
 8. **StepSlot** — слоты, проходящие «шаги» валидации.
 9. **TierTime** — уровни (_tier_) времени.
 10. **Nested** (от _nested validation_ — «вложенная проверка»).

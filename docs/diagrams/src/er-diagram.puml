@@ -150,10 +150,10 @@ entity Venue {
   +updated_at : datetime
 }
 
-entity Room {
+entity Space {
   +id : uuid
   +venueId : uuid
-  +title : string
+  +name : string
   +capacity : int
   +floor : int
   --
@@ -164,7 +164,7 @@ entity Room {
 entity Availability {
   +id : uuid
   +venueId : uuid // nullable
-  +roomId : uuid // nullable
+  +spaceId : uuid // nullable
   +specialistId : uuid // nullable
   +organizationId : uuid // nullable
   +rules : json // единый формат правил записи
@@ -173,7 +173,7 @@ entity Availability {
   +updated_at : datetime
 }
 note right of Availability
-  Хранит правила записи для Venue, Room, Specialist
+  Хранит правила записи для Venue, Space, Specialist
   в формате JSON (intervals, exceptions, recurrence_rule)
 end note
 
@@ -231,7 +231,7 @@ end note
 
 entity Event {
   +id : uuid
-  +room_id : uuid
+  +space_id : uuid
   +parent_event_id : uuid
   +organization_id : uuid
   +specialist_id : uuid
@@ -330,9 +330,9 @@ User ||--o{ Booking : makes
 
 Organization ||--o{ Venue : has
 Organization ||--o{ Event : organizes
-Venue ||--o{ Room : contains
+Venue ||--o{ Space : contains
 
-Room ||--o{ Event : hosts
+Space ||--o{ Event : hosts
 
 Event ||--o{ Booking : has
 EventTemplate ||--o{ Event : generates
@@ -349,7 +349,7 @@ Role ||--o{ RoleType : uses
 User ||--o{ Gender : uses
 
 Venue ||--o{ Availability : has
-Room ||--o{ Availability : has
+Space ||--o{ Availability : has
 User ||--o{ Availability : has
 Organization ||--o{ Availability : scoped_to
 @enduml
