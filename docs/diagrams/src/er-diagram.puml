@@ -135,7 +135,8 @@ end note
 entity Venue {
   +id : uuid
   +organizationId : uuid
-  +title : string
+  +name : string
+  --
   +address : string
   +description : text
   +phone : string

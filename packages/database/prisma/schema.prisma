@@ -15,6 +15,14 @@ datasource db {
 }
 
 model Organization {
-  id   String @id @default(uuid())
-  name String
+  id    String  @id @default(uuid())
+  name  String
+  Venue Venue[]
+}
+
+model Venue {
+  id             String       @id @default(uuid())
+  name           String
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
 }
