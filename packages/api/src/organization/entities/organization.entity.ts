@@ -13,4 +13,20 @@ export class Organization implements PrismaOrganization {
     example: 'Клиника Здоровье',
   })
   name!: string;
+
+  @ApiProperty({
+    description: 'Creation time of the organization',
+    type: String,
+    format: 'date-time',
+    example: '2025-04-25T10:00:00Z',
+  })
+  createdAt!: Date;
+
+  @ApiProperty({
+    description: 'Last update time of the organization',
+    type: String,
+    format: 'date-time',
+    example: '2025-04-25T15:30:00Z',
+  })
+  updatedAt!: Date;
 }

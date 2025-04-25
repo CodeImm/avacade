@@ -15,9 +15,11 @@ datasource db {
 }
 
 model Organization {
-  id    String  @id @default(uuid())
-  name  String
-  Venue Venue[]
+  id        String   @id @default(uuid())
+  name      String
+  Venue     Venue[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Venue {
@@ -25,4 +27,18 @@ model Venue {
   name           String
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id])
+  Space          Space[]
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+}
+
+model Space {
+  id        String   @id @default(uuid())
+  name      String
+  capacity  Int?
+  floor     Int?
+  venueId   String
+  venue     Venue    @relation(fields: [venueId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

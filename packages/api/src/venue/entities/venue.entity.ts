@@ -8,7 +8,10 @@ export class Venue implements PrismaVenue {
   })
   id!: string;
 
-  @ApiProperty({ description: 'Name of the venue', example: 'Main Hall' })
+  @ApiProperty({
+    description: 'Name of the venue',
+    example: 'Main Hall',
+  })
   name!: string;
 
   @ApiProperty({
@@ -16,4 +19,20 @@ export class Venue implements PrismaVenue {
     example: '123e4567-e89b-12d3-a456-426614174000',
   })
   organizationId!: string;
+
+  @ApiProperty({
+    description: 'Creation time of the venue',
+    type: String,
+    format: 'date-time',
+    example: '2025-04-25T10:00:00Z',
+  })
+  createdAt!: Date;
+
+  @ApiProperty({
+    description: 'Last update time of the venue',
+    type: String,
+    format: 'date-time',
+    example: '2025-04-25T15:30:00Z',
+  })
+  updatedAt!: Date;
 }

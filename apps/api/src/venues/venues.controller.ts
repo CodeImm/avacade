@@ -9,7 +9,7 @@ import {
 } from '@nestjs/common';
 import { ApiCreatedResponse, ApiOkResponse, ApiTags } from '@nestjs/swagger';
 import { VenuesService } from './venues.service';
-import { CreateVenueDto, UpdateVenueDto, Venue } from '@repo/api';
+import { CreateVenueDto, Space, UpdateVenueDto, Venue } from '@repo/api';
 
 @ApiTags('venues')
 @Controller('venues')
@@ -38,6 +38,15 @@ export class VenuesController {
   })
   async findOne(@Param('id') id: string): Promise<Venue> {
     return this.venuesService.findOne(id);
+  }
+
+  @Get(':id/spaces')
+  @ApiOkResponse({
+    type: [Space],
+    description: 'List of spaces for a specific venue',
+  })
+  async findSpacesByVenue(@Param('id') id: string): Promise<Space[]> {
+    return this.venuesService.findSpacesByVenue(id);
   }
 
   @Patch(':id')

@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
-import { CreateVenueDto, UpdateVenueDto, Venue } from '@repo/api';
+import { CreateVenueDto, Space, UpdateVenueDto, Venue } from '@repo/api';
 
 @Injectable()
 export class VenuesService {
@@ -50,6 +50,21 @@ export class VenuesService {
     }
 
     return venue;
+  }
+
+  async findSpacesByVenue(venueId: string): Promise<Space[]> {
+    const venue = await this.prisma.venue.findUnique({
+      where: { id: venueId },
+    });
+
+    if (!venue) {
+      throw new NotFoundException(`Venue with ID ${venueId} not found`);
+    }
+
+    return this.prisma.space.findMany({
+      where: { venueId },
+      orderBy: { name: 'asc' },
+    });
   }
 
   async update(id: string, updateVenueDto: UpdateVenueDto): Promise<Venue> {
