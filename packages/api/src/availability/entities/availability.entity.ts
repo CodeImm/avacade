@@ -1,7 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import type { Availability as PrismaAvailability } from '@repo/db';
 
-export class Availability implements Omit<PrismaAvailability, 'rules'> {
+export class Availability implements PrismaAvailability {
   @ApiProperty({
     description: 'Unique identifier of the availability (UUID)',
     example: '550e8400-e29b-41d4-a716-446655440000',

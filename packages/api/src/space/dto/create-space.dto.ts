@@ -1,10 +1,7 @@
-import { IsString, IsNotEmpty, IsInt, IsOptional } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import type { Prisma } from '@repo/db';
+import { IsInt, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 
-export class CreateSpaceDto
-  implements Omit<Prisma.SpaceCreateInput, 'venue' | 'id'>
-{
+export class CreateSpaceDto {
   @ApiProperty({
     description: 'Name of the space',
     example: 'Yoga Room 1',

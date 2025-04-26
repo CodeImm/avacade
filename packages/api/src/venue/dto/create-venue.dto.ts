@@ -1,10 +1,7 @@
-import { IsString, IsNotEmpty } from 'class-validator';
-import type { Prisma } from '@repo/db';
 import { ApiProperty } from '@nestjs/swagger';
+import { IsNotEmpty, IsString } from 'class-validator';
 
-export class CreateVenueDto
-  implements Omit<Prisma.VenueCreateInput, 'organization' | 'id'>
-{
+export class CreateVenueDto {
   @IsString()
   @IsNotEmpty()
   @ApiProperty({ type: String })
