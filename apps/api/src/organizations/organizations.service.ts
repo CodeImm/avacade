@@ -9,7 +9,7 @@ import type {
   UpdateOrganizationDto,
   Organization,
 } from '@repo/api';
-import { PrismaService } from '../prisma.service';
+import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class OrganizationsService {

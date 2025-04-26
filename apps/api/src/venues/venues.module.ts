@@ -1,10 +1,9 @@
 import { Module } from '@nestjs/common';
-import { VenuesService } from './venues.service';
 import { VenuesController } from './venues.controller';
-import { PrismaService } from '../prisma.service';
+import { VenuesService } from './venues.service';
 
 @Module({
   controllers: [VenuesController],
-  providers: [VenuesService, PrismaService],
+  providers: [VenuesService],
 })
 export class VenuesModule {}
