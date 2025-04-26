@@ -163,10 +163,9 @@ entity Space {
 
 entity Availability {
   +id : uuid
-  +venueId : uuid // nullable
-  +spaceId : uuid // nullable
-  +specialistId : uuid // nullable
-  +organizationId : uuid // nullable
+  +venueId? : uuid
+  +spaceId? : uuid
+  +userId? : uuid
   +rules : json // единый формат правил записи
   --
   +created_at : datetime

@@ -1,0 +1,94 @@
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+} from '@nestjs/common';
+import { ApiCreatedResponse, ApiOkResponse, ApiTags } from '@nestjs/swagger';
+import {
+  Availability,
+  CreateAvailabilityDto,
+  UpdateAvailabilityDto,
+} from '@repo/api';
+import { AvailabilitiesService } from './availabilities.service';
+
+@ApiTags('availabilities')
+@Controller('availabilities')
+export class AvailabilitiesController {
+  constructor(private readonly availabilitiesService: AvailabilitiesService) {}
+
+  @Post()
+  @ApiCreatedResponse({
+    type: Availability,
+    description: 'Availability created successfully',
+  })
+  async create(
+    @Body() createAvailabilityDto: CreateAvailabilityDto,
+  ): Promise<Availability> {
+    return this.availabilitiesService.create(createAvailabilityDto);
+  }
+
+  @Get()
+  @ApiOkResponse({
+    type: [Availability],
+    description: 'List of all availability rules',
+  })
+  async findAll(): Promise<Availability[]> {
+    return this.availabilitiesService.findAll();
+  }
+
+  @Get(':id')
+  @ApiOkResponse({
+    type: Availability,
+    description: 'Details of a specific availability rule',
+  })
+  async findOne(@Param('id') id: string): Promise<Availability> {
+    return this.availabilitiesService.findOne(id);
+  }
+
+  // @Get('/venues/:venueId/availability')
+  // @ApiOkResponse({
+  //   type: [Availability],
+  //   description: 'Availability rules for a specific venue',
+  // })
+  // async findByVenue(
+  //   @Param('venueId') venueId: string,
+  // ): Promise<Availability[]> {
+  //   return this.availabilitiesService.findByEntity({ venueId });
+  // }
+
+  // @Get('/spaces/:spaceId/availability')
+  // @ApiOkResponse({
+  //   type: [Availability],
+  //   description: 'Availability rules for a specific space',
+  // })
+  // async findBySpace(
+  //   @Param('spaceId') spaceId: string,
+  // ): Promise<Availability[]> {
+  //   return this.availabilitiesService.findByEntity({ spaceId });
+  // }
+
+  @Patch(':id')
+  @ApiOkResponse({
+    type: Availability,
+    description: 'Availability updated successfully',
+  })
+  async update(
+    @Param('id') id: string,
+    @Body() updateAvailabilityDto: UpdateAvailabilityDto,
+  ): Promise<Availability> {
+    return this.availabilitiesService.update(id, updateAvailabilityDto);
+  }
+
+  @Delete(':id')
+  @ApiOkResponse({
+    type: Availability,
+    description: 'Availability deleted successfully',
+  })
+  async remove(@Param('id') id: string): Promise<Availability> {
+    return this.availabilitiesService.remove(id);
+  }
+}

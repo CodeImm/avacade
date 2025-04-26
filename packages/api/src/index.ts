@@ -9,3 +9,7 @@ export * from './venue/dto/update-venue.dto';
 export * from './space/entities/space.entity';
 export * from './space/dto/create-space.dto';
 export * from './space/dto/update-space.dto';
+
+export * from './availability/entities/availability.entity';
+export * from './availability/dto/create-availability.dto';
+export * from './availability/dto/update-availability.dto';

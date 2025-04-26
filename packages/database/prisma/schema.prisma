@@ -23,22 +23,34 @@ model Organization {
 }
 
 model Venue {
-  id             String       @id @default(uuid())
+  id             String         @id @default(uuid())
   name           String
   organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id])
+  organization   Organization   @relation(fields: [organizationId], references: [id])
   Space          Space[]
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  Availability   Availability[]
 }
 
 model Space {
+  id           String         @id @default(uuid())
+  name         String
+  capacity     Int?
+  floor        Int?
+  venueId      String
+  venue        Venue          @relation(fields: [venueId], references: [id])
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  Availability Availability[]
+}
+
+model Availability {
   id        String   @id @default(uuid())
-  name      String
-  capacity  Int?
-  floor     Int?
-  venueId   String
-  venue     Venue    @relation(fields: [venueId], references: [id])
+  venueId   String?
+  spaceId   String?
+  venue     Venue?   @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  space     Space?   @relation(fields: [spaceId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }

@@ -4,9 +4,15 @@ import { AppService } from './app.service';
 import { OrganizationsModule } from './organizations/organizations.module';
 import { VenuesModule } from './venues/venues.module';
 import { SpacesModule } from './spaces/spaces.module';
+import { AvailabilitiesModule } from './availabilities/availabilities.module';
 
 @Module({
-  imports: [OrganizationsModule, VenuesModule, SpacesModule],
+  imports: [
+    OrganizationsModule,
+    VenuesModule,
+    SpacesModule,
+    AvailabilitiesModule,
+  ],
   controllers: [AppController],
   providers: [AppService],
 })
