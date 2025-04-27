@@ -39,12 +39,62 @@ async function main() {
   await prisma.availability.create({
     data: {
       spaceId: space1.id,
+      rules: {
+        intervals: [
+          {
+            start_time: '09:00',
+            end_time: '18:00',
+            days_of_week: ['MO', 'WE', 'FR'],
+            valid_from: '2025-01-01',
+            valid_until: null,
+          },
+        ],
+        exceptions: [
+          {
+            date: '2025-04-23',
+            status: 'CLOSED',
+            start_time: null,
+            end_time: null,
+          },
+        ],
+        recurrence_rule: {
+          frequency: 'WEEKLY',
+          interval: 1,
+          until: null,
+          byweekday: ['MO', 'WE', 'FR'],
+        },
+      },
     },
   });
 
   await prisma.availability.create({
     data: {
       spaceId: space2.id,
+      rules: {
+        intervals: [
+          {
+            start_time: '09:00',
+            end_time: '18:00',
+            days_of_week: ['MO', 'WE', 'FR'],
+            valid_from: '2025-01-01',
+            valid_until: null,
+          },
+        ],
+        exceptions: [
+          {
+            date: '2025-04-23',
+            status: 'CLOSED',
+            start_time: null,
+            end_time: null,
+          },
+        ],
+        recurrence_rule: {
+          frequency: 'WEEKLY',
+          interval: 1,
+          until: null,
+          byweekday: ['MO', 'WE', 'FR'],
+        },
+      },
     },
   });
 

@@ -6,7 +6,7 @@
 
 ```json
 {
-  "context": "SPECIALIST" | "VENUE" | "ROOM",
+  "context": "USER" | "VENUE" | "SPACE",
   "entityId": "uuid",
   "organizationId": "uuid" | null,
   "intervals": [

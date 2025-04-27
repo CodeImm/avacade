@@ -1,5 +1,13 @@
-import { IsNotEmpty, IsString, ValidateIf } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
+import {
+  IsDefined,
+  IsNotEmpty,
+  IsString,
+  ValidateIf,
+  ValidateNested,
+} from 'class-validator';
+import { AvailabilityRulesDto } from '../../rules/dto/availability-rules.dto';
 
 export class CreateAvailabilityDto {
   @ApiProperty({
@@ -23,4 +31,38 @@ export class CreateAvailabilityDto {
   @IsNotEmpty()
   @ValidateIf((o) => !o.venueId)
   spaceId?: string;
+
+  @ApiProperty({
+    description: 'Rules in JSON format',
+    type: AvailabilityRulesDto,
+    example: {
+      intervals: [
+        {
+          start_time: '09:00',
+          end_time: '17:00',
+          days_of_week: ['MO', 'TU'],
+          valid_from: null,
+          valid_until: null,
+        },
+      ],
+      exceptions: [
+        {
+          date: '2025-05-02',
+          status: 'CLOSED',
+          start_time: null,
+          end_time: null,
+        },
+      ],
+      recurrence_rule: {
+        frequency: 'WEEKLY',
+        interval: 1,
+        until: null,
+        byweekday: ['MO', 'TU'],
+      },
+    },
+  })
+  @IsDefined()
+  @ValidateNested()
+  @Type(() => AvailabilityRulesDto)
+  rules!: AvailabilityRulesDto;
 }

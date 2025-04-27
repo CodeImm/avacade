@@ -13,3 +13,8 @@ export * from './space/dto/update-space.dto';
 export * from './availability/entities/availability.entity';
 export * from './availability/dto/create-availability.dto';
 export * from './availability/dto/update-availability.dto';
+
+export * from './rules/types';
+export * from './rules/dto/time-interval.dto';
+export * from './rules/dto/exception.dto';
+export * from './rules/dto/recurrence-rule.dto';

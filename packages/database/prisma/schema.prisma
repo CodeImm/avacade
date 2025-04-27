@@ -9,6 +9,11 @@ generator client {
   output   = "../generated/prisma"
 }
 
+generator json {
+  provider  = "prisma-json-types-generator"
+  namespace = "PrismaJson"
+}
+
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
@@ -49,6 +54,8 @@ model Availability {
   id        String   @id @default(uuid())
   venueId   String?
   spaceId   String?
+  /// [AvailabilityRules]
+  rules     Json
   venue     Venue?   @relation(fields: [venueId], references: [id], onDelete: Cascade)
   space     Space?   @relation(fields: [spaceId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())

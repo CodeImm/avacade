@@ -15,6 +15,7 @@
   "devDependencies": {
     "@types/node": "^22.15.2",
     "prisma": "^6.6.0",
+    "prisma-json-types-generator": "^3.3.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.8.3"
   },
