@@ -6,16 +6,20 @@
 
 ```json
 {
-  "context": "USER" | "VENUE" | "SPACE",
-  "entityId": "uuid",
-  "organizationId": "uuid" | null,
   "intervals": [
     {
       "start_time": "HH:mm",
       "end_time": "HH:mm",
-      "days_of_week": ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"],
+      "days_of_week": ["MO", "TU", "WE", "TH", "FR", "SA", "SU"],
       "valid_from": "YYYY-MM-DD" | null,
-      "valid_until": "YYYY-MM-DD" | null
+      "valid_until": "YYYY-MM-DD" | null,
+      // "subintervals": [
+      //   {
+      //     "start_time": "HH:mm",
+      //     "end_time": "HH:mm",
+      //     "type": "AVAILABLE" | "BREAK" | "RESERVED" | null
+      //   }
+      // ]
     }
   ],
   "exceptions": [
@@ -30,7 +34,10 @@
     "frequency": "DAILY" | "WEEKLY" | "MONTHLY",
     "interval": number,
     "until": "YYYY-MM-DD" | null,
-    "byweekday": ["MO", "TU", "WE", "TH", "FR", "SA", "SU"] | null
+    "byweekday": ["MO", "TU", "WE", "TH", "FR", "SA", "SU"] | null,
+    "bymonthday": number[] | null,
+    "bysetpos": number[] | null,
+    "byhour": number[] | null
   }
 }
 ```

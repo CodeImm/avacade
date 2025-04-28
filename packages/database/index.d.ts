@@ -19,34 +19,39 @@ declare global {
       DAILY = 'DAILY',
       WEEKLY = 'WEEKLY',
       MONTHLY = 'MONTHLY',
+      YEARLY = 'YEARLY',
     }
 
-    interface TimeInterval {
-      start_time: string; // HH:mm, e.g., "09:00"
-      end_time: string; // HH:mm, e.g., "17:00"
-      days_of_week: DayOfWeek[];
-      valid_from: string | null; // YYYY-MM-DD, e.g., "2025-05-01"
-      valid_until: string | null; // YYYY-MM-DD, e.g., "2025-12-31"
+    interface AvailabilityRules {
+      intervals: Interval[];
+      exceptions: Exception[];
+      recurrence_rule: RecurrenceRule;
+    }
+
+    interface Interval {
+      start_time: string; // "HH:mm"
+      end_time: string; // "HH:mm"
+      days_of_week: string[]; // ["MO", "TU", ...]
+      valid_from: string | null; // "YYYY-MM-DD"
+      valid_until: string | null; // "YYYY-MM-DD"
     }
 
     interface Exception {
-      date: string; // YYYY-MM-DD, e.g., "2025-05-02"
+      date: string; // "YYYY-MM-DD"
       status: ExceptionStatus;
-      start_time: string | null; // HH:mm, e.g., "10:00"
-      end_time: string | null; // HH:mm, e.g., "12:00"
+      start_time: string | null; // "HH:mm"
+      end_time: string | null; // "HH:mm"
     }
 
     interface RecurrenceRule {
       frequency: RecurrenceFrequency;
-      interval: number;
-      until: string | null; // YYYY-MM-DD, e.g., "2025-12-31"
-      byweekday: DayOfWeek[] | null;
-    }
-
-    interface AvailabilityRules {
-      intervals: TimeInterval[];
-      exceptions: Exception[];
-      recurrence_rule: RecurrenceRule;
+      interval?: number;
+      until?: string | null; // "YYYY-MM-DD"
+      count?: number | null;
+      byweekday?: string[] | null; // ["MO", "TU", ...]
+      bymonthday?: number[] | null; // [1, 15]
+      bysetpos?: number[] | null; // [1, -1]
+      byhour?: number[] | null; // [9, 14]
     }
   }
 }
