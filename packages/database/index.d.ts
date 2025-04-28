@@ -53,6 +53,15 @@ declare global {
       bysetpos?: number[] | null; // [1, -1]
       byhour?: number[] | null; // [9, 14]
     }
+
+    enum EventStatus {
+      PLANNED = 'PLANNED',
+      CONFIRMED = 'CONFIRMED',
+      IN_PROGRESS = 'IN_PROGRESS',
+      COMPLETED = 'COMPLETED',
+      CANCELED = 'CANCELED',
+      POSTPONED = 'POSTPONED',
+    }
   }
 }
 // TODO: дублирование типов в packages\api\src\rules

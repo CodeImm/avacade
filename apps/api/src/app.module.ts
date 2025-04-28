@@ -6,6 +6,7 @@ import { VenuesModule } from './venues/venues.module';
 import { SpacesModule } from './spaces/spaces.module';
 import { AvailabilitiesModule } from './availabilities/availabilities.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { EventsModule } from './events/events.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { PrismaModule } from './prisma/prisma.module';
     SpacesModule,
     AvailabilitiesModule,
     PrismaModule,
+    EventsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

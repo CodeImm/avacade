@@ -231,18 +231,18 @@ end note
 entity Event {
   +id : uuid
   +space_id : uuid
-  +parent_event_id : uuid
-  +organization_id : uuid
-  +specialist_id : uuid
   +title : string
-  +description : text
   +start_time : datetime
   +end_time : datetime
+  +status : EventStatus
+  --
+  +specialist_id : uuid
+  +parent_event_id : uuid
+  +description : text
   +type_id : uuid
   +participant_mode : ParticipantMode
   +visibility : EventVisibility
   +delivery : EventDelivery
-  +status : EventStatus
   +max_participants : int
   +is_recurring : boolean
   +cancellation_reason : string
@@ -328,7 +328,6 @@ User ||--o{ Event : teaches
 User ||--o{ Booking : makes
 
 Organization ||--o{ Venue : has
-Organization ||--o{ Event : organizes
 Venue ||--o{ Space : contains
 
 Space ||--o{ Event : hosts

@@ -18,3 +18,8 @@ export * from './rules/types';
 export * from './rules/dto/time-interval.dto';
 export * from './rules/dto/exception.dto';
 export * from './rules/dto/recurrence-rule.dto';
+
+export * from './event/types';
+export * from './event/entities/event.entity';
+export * from './event/dto/create-event.dto';
+export * from './event/dto/update-event.dto';

@@ -22,9 +22,9 @@ datasource db {
 model Organization {
   id        String   @id @default(uuid())
   name      String
-  Venue     Venue[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  Venue     Venue[]
 }
 
 model Venue {
@@ -48,6 +48,7 @@ model Space {
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
   Availability Availability[]
+  Event        Event[]
 }
 
 model Availability {
@@ -60,4 +61,19 @@ model Availability {
   space     Space?   @relation(fields: [spaceId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model Event {
+  id        String   @id @default(uuid())
+  spaceId   String
+  title     String
+  startTime DateTime
+  endTime   DateTime
+  /// [EventStatus] 
+  status    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  space Space? @relation(fields: [spaceId], references: [id])
 }
