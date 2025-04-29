@@ -8,36 +8,32 @@
 {
   "intervals": [
     {
-      "start_time": "HH:mm",
-      "end_time": "HH:mm",
-      "days_of_week": ["MO", "TU", "WE", "TH", "FR", "SA", "SU"],
-      "valid_from": "YYYY-MM-DD" | null,
-      "valid_until": "YYYY-MM-DD" | null,
-      // "subintervals": [
-      //   {
-      //     "start_time": "HH:mm",
-      //     "end_time": "HH:mm",
-      //     "type": "AVAILABLE" | "BREAK" | "RESERVED" | null
-      //   }
-      // ]
+      start_time: string; // "HH:mm"
+      end_time: string; // "HH:mm"
+      days_of_week: string[]; // ["MO", "TU", ...]
+      valid_from: string | null; // "YYYY-MM-DD"
+      valid_until: string | null; // "YYYY-MM-DD"
     }
   ],
   "exceptions": [
     {
-      "date": "YYYY-MM-DD",
-      "status": "CLOSED" | "OPEN",
-      "start_time": "HH:mm" | null,
-      "end_time": "HH:mm" | null
+      date: string; // "YYYY-MM-DD"
+      status: ExceptionStatus;
+      start_time: string | null; // "HH:mm"
+      end_time: string | null; // "HH:mm"
     }
   ],
   "recurrence_rule": {
-    "frequency": "DAILY" | "WEEKLY" | "MONTHLY",
-    "interval": number,
-    "until": "YYYY-MM-DD" | null,
-    "byweekday": ["MO", "TU", "WE", "TH", "FR", "SA", "SU"] | null,
-    "bymonthday": number[] | null,
-    "bysetpos": number[] | null,
-    "byhour": number[] | null
+     frequency: RecurrenceFrequency;
+      dtstart: string; // "YYYY-MM-DD";
+      until?: string | null; // "YYYY-MM-DD"
+      byweekday?: string[] | null; // ["MO", "TU", ...]
+      interval?: number;
+      count?: number | null; // or until!
+      bysetpos?: number[] | null; // [1, -1]
+      bymonth?: number[] | null;
+      bymonthday?: number[] | null; // [1, 15]
+      byhour?: number[] | null; // [9, 14]
   }
 }
 ```
