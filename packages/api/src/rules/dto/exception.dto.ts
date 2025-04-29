@@ -13,9 +13,14 @@ export class ExceptionDto {
     description: 'Exception date in YYYY-MM-DD format',
     example: '2025-05-02',
   })
-  @IsDateString({
-    message: 'Date must be a valid ISO date string (YYYY-MM-DD)',
-  })
+  @IsDateString(
+    {
+      strict: true,
+    },
+    {
+      message: 'Date must be a valid ISO date string (YYYY-MM-DD)',
+    },
+  )
   date!: string;
 
   @ApiProperty({

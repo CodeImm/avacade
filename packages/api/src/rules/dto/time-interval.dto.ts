@@ -35,17 +35,22 @@ export class TimeIntervalDto {
     each: true,
     message: 'Each day must be a valid DayOfWeek value',
   })
-  days_of_week!: DayOfWeek[];
+  @IsOptional()
+  days_of_week?: DayOfWeek[];
 
   @ApiProperty({
     description: 'Valid from date in YYYY-MM-DD format',
     nullable: true,
     example: '2025-05-01',
   })
-  @IsOptional()
-  @IsDateString({
-    message: 'valid_from must be a valid ISO date string (YYYY-MM-DD)',
-  })
+  @IsDateString(
+    {
+      strict: true,
+    },
+    {
+      message: 'valid_from must be a valid ISO date string (YYYY-MM-DD)',
+    },
+  )
   valid_from!: string | null;
 
   @ApiProperty({
@@ -53,9 +58,13 @@ export class TimeIntervalDto {
     nullable: true,
     example: '2025-12-31',
   })
-  @IsOptional()
-  @IsDateString({
-    message: 'valid_until must be a valid ISO date string (YYYY-MM-DD)',
-  })
+  @IsDateString(
+    {
+      strict: true,
+    },
+    {
+      message: 'valid_until must be a valid ISO date string (YYYY-MM-DD)',
+    },
+  )
   valid_until!: string | null;
 }

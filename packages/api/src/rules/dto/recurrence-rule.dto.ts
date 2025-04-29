@@ -15,62 +15,48 @@ import {
 } from 'class-validator';
 import { DayOfWeek, RecurrenceFrequency } from '../types';
 
-@ValidatorConstraint({ name: 'NoZeroInBysetpos', async: false })
-class NoZeroInBysetpos implements ValidatorConstraintInterface {
-  validate(values: number[], _args: ValidationArguments) {
+@ValidatorConstraint({ name: 'UniqueArray', async: false })
+class UniqueArray implements ValidatorConstraintInterface {
+  validate(values: any[] | null) {
+    if (!values) return true;
+    const unique = new Set(values);
+    return unique.size === values.length;
+  }
+  defaultMessage() {
+    return 'Array must contain unique values';
+  }
+}
+
+@ValidatorConstraint({ name: 'NoZeroInArray', async: false })
+class NoZeroInArray implements ValidatorConstraintInterface {
+  validate(values: number[] | null) {
     return Array.isArray(values) ? values.every((value) => value !== 0) : true;
   }
-
-  defaultMessage(_args: ValidationArguments) {
-    return 'bysetpos cannot contain 0 (must be between -366 and -1, or between 1 and 366)';
+  defaultMessage() {
+    return 'Array cannot contain 0';
   }
 }
 
-@ValidatorConstraint({ name: 'UniqueByweekday', async: false })
-class UniqueByweekday implements ValidatorConstraintInterface {
-  validate(byweekday: DayOfWeek[] | null) {
-    if (!byweekday) return true;
-    const unique = new Set(byweekday);
-    return unique.size === byweekday.length;
+@ValidatorConstraint({ name: 'CountOrUntil', async: false })
+class CountOrUntil implements ValidatorConstraintInterface {
+  validate(_value: any, args: ValidationArguments) {
+    const { count, until } = args.object as RecurrenceRuleDto;
+    return !(count !== null && until !== null);
   }
   defaultMessage() {
-    return 'byweekday must contain unique days';
+    return 'Only one of count or until can be specified';
   }
 }
 
-@ValidatorConstraint({ name: 'UniqueBymonthday', async: false })
-class UniqueBymonthday implements ValidatorConstraintInterface {
-  validate(bymonthday: number[] | null) {
-    if (!bymonthday) return true;
-    const unique = new Set(bymonthday);
-    return unique.size === bymonthday.length;
+@ValidatorConstraint({ name: 'UntilAfterDtstart', async: false })
+class UntilAfterDtstart implements ValidatorConstraintInterface {
+  validate(until: string | null, args: ValidationArguments) {
+    if (!until) return true;
+    const { dtstart } = args.object as RecurrenceRuleDto;
+    return new Date(until) >= new Date(dtstart);
   }
   defaultMessage() {
-    return 'bymonthday must contain unique values';
-  }
-}
-
-@ValidatorConstraint({ name: 'UniqueBysetpos', async: false })
-class UniqueBysetpos implements ValidatorConstraintInterface {
-  validate(bysetpos: number[] | null) {
-    if (!bysetpos) return true;
-    const unique = new Set(bysetpos);
-    return unique.size === bysetpos.length;
-  }
-  defaultMessage() {
-    return 'bysetpos must contain unique values';
-  }
-}
-
-@ValidatorConstraint({ name: 'UniqueByhour', async: false })
-class UniqueByhour implements ValidatorConstraintInterface {
-  validate(byhour: number[] | null) {
-    if (!byhour) return true;
-    const unique = new Set(byhour);
-    return unique.size === byhour.length;
-  }
-  defaultMessage() {
-    return 'byhour must contain unique values';
+    return 'until must be on or after dtstart';
   }
 }
 
@@ -78,28 +64,155 @@ class UniqueByhour implements ValidatorConstraintInterface {
 class ValidBymonthday implements ValidatorConstraintInterface {
   validate(bymonthday: number[] | null, args: ValidationArguments) {
     const { frequency } = args.object as RecurrenceRuleDto;
-    if (frequency === RecurrenceFrequency.DAILY && bymonthday?.length) {
+    if (
+      bymonthday?.length &&
+      (frequency === RecurrenceFrequency.DAILY ||
+        frequency === RecurrenceFrequency.WEEKLY)
+    ) {
       return false;
     }
     return true;
   }
   defaultMessage() {
-    return 'bymonthday cannot be used with DAILY frequency';
+    return 'bymonthday cannot be used with DAILY or WEEKLY frequency';
+  }
+}
+
+@ValidatorConstraint({ name: 'ValidBysetpos', async: false })
+class ValidBysetpos implements ValidatorConstraintInterface {
+  validate(bysetpos: number[] | null, args: ValidationArguments) {
+    const { frequency } = args.object as RecurrenceRuleDto;
+    if (
+      bysetpos?.length &&
+      (frequency === RecurrenceFrequency.DAILY ||
+        frequency === RecurrenceFrequency.WEEKLY)
+    ) {
+      return false;
+    }
+    return true;
+  }
+  defaultMessage() {
+    return 'bysetpos cannot be used with DAILY or WEEKLY frequency';
+  }
+}
+
+@ValidatorConstraint({ name: 'WeeklyByweekday', async: false })
+class WeeklyByweekday implements ValidatorConstraintInterface {
+  validate(byweekday: DayOfWeek[] | null, args: ValidationArguments) {
+    const { frequency } = args.object as RecurrenceRuleDto;
+    if (
+      frequency === RecurrenceFrequency.WEEKLY &&
+      (!byweekday || byweekday.length === 0)
+    ) {
+      return false;
+    }
+    return true;
+  }
+  defaultMessage() {
+    return 'byweekday must be specified and non-empty for WEEKLY frequency';
+  }
+}
+
+@ValidatorConstraint({ name: 'MonthlyByweekdayBysetpos', async: false })
+class MonthlyByweekdayBysetpos implements ValidatorConstraintInterface {
+  validate(byweekday: DayOfWeek[] | null, args: ValidationArguments) {
+    const { frequency, bysetpos } = args.object as RecurrenceRuleDto;
+    if (
+      frequency === RecurrenceFrequency.MONTHLY &&
+      byweekday?.length &&
+      (!bysetpos || bysetpos.length === 0)
+    ) {
+      return false;
+    }
+    return true;
+  }
+  defaultMessage() {
+    return 'byweekday requires bysetpos for MONTHLY frequency';
+  }
+}
+
+@ValidatorConstraint({
+  name: 'MonthlyBysetposRequiresByweekdayOrBymonthday',
+  async: false,
+})
+class MonthlyBysetposRequiresByweekdayOrBymonthday
+  implements ValidatorConstraintInterface
+{
+  validate(bysetpos: number[] | null, args: ValidationArguments) {
+    const { frequency, byweekday, bymonthday } =
+      args.object as RecurrenceRuleDto;
+    if (
+      frequency === RecurrenceFrequency.MONTHLY &&
+      bysetpos?.length &&
+      !byweekday?.length &&
+      !bymonthday?.length
+    ) {
+      return false;
+    }
+    return true;
+  }
+  defaultMessage() {
+    return 'bysetpos requires at least one of byweekday or bymonthday for MONTHLY frequency';
+  }
+}
+
+@ValidatorConstraint({ name: 'NoByweekdayForDaily', async: false })
+class NoByweekdayForDaily implements ValidatorConstraintInterface {
+  validate(byweekday: DayOfWeek[] | null, args: ValidationArguments) {
+    const { frequency } = args.object as RecurrenceRuleDto;
+    if (frequency === RecurrenceFrequency.DAILY && byweekday?.length) {
+      return false;
+    }
+    return true;
+  }
+  defaultMessage() {
+    return 'byweekday cannot be used with DAILY frequency';
+  }
+}
+
+@ValidatorConstraint({
+  name: 'NoByweekdayWithBymonthdayForMonthly',
+  async: false,
+})
+class NoByweekdayWithBymonthdayForMonthly
+  implements ValidatorConstraintInterface
+{
+  validate(bymonthday: number[] | null, args: ValidationArguments) {
+    const { frequency, byweekday } = args.object as RecurrenceRuleDto;
+    if (
+      frequency === RecurrenceFrequency.MONTHLY &&
+      bymonthday?.length &&
+      byweekday?.length
+    ) {
+      return false;
+    }
+    return true;
+  }
+  defaultMessage() {
+    return 'byweekday and bymonthday cannot be used together for MONTHLY frequency';
   }
 }
 
 export class RecurrenceRuleDto {
   @ApiProperty({
-    description: 'Recurrence frequency (DAILY, WEEKLY, MONTHLY, YEARLY)',
+    description: 'Recurrence frequency (DAILY, WEEKLY, MONTHLY)',
     enum: RecurrenceFrequency,
-    example: 'WEEKLY',
+    example: RecurrenceFrequency.WEEKLY,
   })
   @IsEnum(RecurrenceFrequency)
   frequency!: RecurrenceFrequency;
 
+  @ApiProperty({
+    description: 'Recurrence start date in YYYY-MM-DD format',
+    example: '2025-01-06',
+  })
+  @IsDateString({ strict: true })
+  dtstart!: string;
+
   @ApiPropertyOptional({
     description: 'The interval between each frequency iteration. Must be >= 1',
     example: 1,
+    type: Number,
   })
   @IsInt()
   @Min(1)
@@ -108,20 +221,23 @@ export class RecurrenceRuleDto {
 
   @ApiPropertyOptional({
     description: 'Recurrence end date in YYYY-MM-DD format',
-    nullable: true,
     example: '2025-12-31',
+    nullable: true,
   })
-  @IsDateString()
+  @IsDateString({ strict: true })
+  @Validate(UntilAfterDtstart)
   @IsOptional()
   until?: string | null;
 
   @ApiPropertyOptional({
     description: 'Number of occurrences (alternative to until)',
-    nullable: true,
     example: 10,
+    nullable: true,
+    type: Number,
   })
   @IsInt()
   @Min(1)
+  @Validate(CountOrUntil)
   @IsOptional()
   count?: number | null;
 
@@ -130,57 +246,50 @@ export class RecurrenceRuleDto {
     enum: DayOfWeek,
     isArray: true,
     nullable: true,
-    example: ['MO', 'TU'],
+    example: [DayOfWeek.MO, DayOfWeek.TU],
   })
   @IsArray()
   @IsEnum(DayOfWeek, { each: true })
-  @Validate(UniqueByweekday)
+  @Validate(UniqueArray)
+  @Validate(WeeklyByweekday)
+  @Validate(NoByweekdayForDaily)
+  @Validate(MonthlyByweekdayBysetpos)
   @IsOptional()
   byweekday?: DayOfWeek[] | null;
 
   @ApiPropertyOptional({
-    description: 'Days of the month for recurrence (1 to 31)',
+    description: 'Days of the month for recurrence (1 to 31 or -31 to -1)',
     type: [Number],
     nullable: true,
-    example: [1, 15],
+    example: [1, 15, -1],
   })
   @IsArray()
   @IsInt({ each: true })
   @Min(-31, { each: true })
   @Max(31, { each: true })
-  @Validate(UniqueBymonthday)
+  @Validate(UniqueArray)
+  @Validate(NoZeroInArray)
   @Validate(ValidBymonthday)
+  @Validate(NoByweekdayWithBymonthdayForMonthly)
   @IsOptional()
   bymonthday?: number[] | null;
 
   @ApiPropertyOptional({
     description:
-      'Specifies the n-th occurrence(s) to apply the rule. Can be single integer or array of integers (-366..-1 or 1..366)',
+      'Specifies the n-th occurrence(s) to apply the rule (-31 to -1 or 1 to 31)',
     type: [Number],
     nullable: true,
     example: [1, -1],
   })
   @IsArray()
   @Type(() => Number)
-  @IsInt({ each: true, message: 'Each bysetpos must be an integer' })
-  @Min(-366, { each: true, message: 'Each bysetpos must be >= -366' })
-  @Max(366, { each: true, message: 'Each bysetpos must be <= 366' })
-  @Validate(NoZeroInBysetpos)
-  @Validate(UniqueBysetpos)
+  @IsInt({ each: true })
+  @Min(-31, { each: true })
+  @Max(31, { each: true })
+  @Validate(NoZeroInArray)
+  @Validate(UniqueArray)
+  @Validate(ValidBysetpos)
+  @Validate(MonthlyBysetposRequiresByweekdayOrBymonthday)
   @IsOptional()
   bysetpos?: number[] | null;
-
-  @ApiPropertyOptional({
-    description: 'Hours of the day for recurrence (0 to 23)',
-    type: [Number],
-    nullable: true,
-    example: [9, 14],
-  })
-  @IsArray()
-  @IsInt({ each: true })
-  @Min(0, { each: true })
-  @Max(23, { each: true })
-  @Validate(UniqueByhour)
-  @IsOptional()
-  byhour?: number[] | null;
 }

@@ -48,7 +48,9 @@ export class CreateEventDto {
     example: '2025-05-01T09:00:00Z',
     type: String,
   })
-  @IsDateString()
+  @IsDateString({
+    strict: true,
+  })
   @Validate(TimeOrderConstraint)
   startTime!: string;
 
@@ -57,7 +59,9 @@ export class CreateEventDto {
     example: '2025-05-01T10:00:00Z',
     type: String,
   })
-  @IsDateString()
+  @IsDateString({
+    strict: true,
+  })
   endTime!: string;
 
   @ApiProperty({

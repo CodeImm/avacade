@@ -19,21 +19,21 @@ declare global {
       DAILY = 'DAILY',
       WEEKLY = 'WEEKLY',
       MONTHLY = 'MONTHLY',
-      YEARLY = 'YEARLY',
     }
 
     interface AvailabilityRules {
+      // TODO: intervals иожет не быть, если есть exceptions
       intervals: Interval[];
-      exceptions: Exception[];
-      recurrence_rule: RecurrenceRule;
+      exceptions?: Exception[];
+      recurrence_rule?: RecurrenceRule;
     }
 
     interface Interval {
       start_time: string; // "HH:mm"
       end_time: string; // "HH:mm"
-      days_of_week: string[]; // ["MO", "TU", ...]
-      valid_from: string | null; // "YYYY-MM-DD"
-      valid_until: string | null; // "YYYY-MM-DD"
+      days_of_week?: string[] | null; // ["MO", "TU", ...]
+      valid_from: string; // "YYYY-MM-DD"
+      valid_until: string; // "YYYY-MM-DD"
     }
 
     interface Exception {
@@ -45,13 +45,13 @@ declare global {
 
     interface RecurrenceRule {
       frequency: RecurrenceFrequency;
-      interval?: number;
+      dtstart: string | null; // "YYYY-MM-DD";
       until?: string | null; // "YYYY-MM-DD"
-      count?: number | null;
       byweekday?: string[] | null; // ["MO", "TU", ...]
-      bymonthday?: number[] | null; // [1, 15]
+      interval?: number | null;
+      count?: number | null; // or until!
       bysetpos?: number[] | null; // [1, -1]
-      byhour?: number[] | null; // [9, 14]
+      bymonthday?: number[] | null; // [1, 15]
     }
 
     enum EventStatus {

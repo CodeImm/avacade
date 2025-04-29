@@ -1,6 +1,11 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsArray, ValidateNested } from 'class-validator';
+import {
+  ArrayNotEmpty,
+  IsArray,
+  IsOptional,
+  ValidateNested,
+} from 'class-validator';
 import { ExceptionDto } from './exception.dto';
 import { RecurrenceRuleDto } from './recurrence-rule.dto';
 import { TimeIntervalDto } from './time-interval.dto';
@@ -20,6 +25,7 @@ export class AvailabilityRulesDto {
     ],
   })
   @IsArray()
+  @ArrayNotEmpty()
   @ValidateNested({ each: true })
   @Type(() => TimeIntervalDto)
   intervals!: TimeIntervalDto[];
@@ -39,6 +45,7 @@ export class AvailabilityRulesDto {
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => ExceptionDto)
+  @IsOptional()
   exceptions?: ExceptionDto[];
 
   @ApiPropertyOptional({
@@ -53,5 +60,6 @@ export class AvailabilityRulesDto {
   })
   @ValidateNested()
   @Type(() => RecurrenceRuleDto)
+  @IsOptional()
   recurrence_rule?: RecurrenceRuleDto;
 }
