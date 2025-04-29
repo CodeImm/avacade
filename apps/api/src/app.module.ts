@@ -7,6 +7,7 @@ import { SpacesModule } from './spaces/spaces.module';
 import { AvailabilitiesModule } from './availabilities/availabilities.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { EventsModule } from './events/events.module';
+import { DayjsModule } from './dayjs/dayjs.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { EventsModule } from './events/events.module';
     AvailabilitiesModule,
     PrismaModule,
     EventsModule,
+    DayjsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
