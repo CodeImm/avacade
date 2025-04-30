@@ -64,6 +64,41 @@ export class AvailabilitiesService {
       createAvailabilityDto.rules.intervals,
     );
 
+    const isDaily =
+      createAvailabilityDto.rules.recurrence_rule?.frequency === 'DAILY';
+
+    if (isDaily) {
+      const earliestValidFrom = this.dayjs.min(
+        intervalGroups.map((group) => this.dayjs.utc(group.valid_from)),
+      );
+
+      const availabilityData = {
+        ...createAvailabilityDto,
+        rules: {
+          intervals: intervalGroups.map((group) => ({
+            start_time: group.start_time,
+            end_time: group.end_time,
+            duration_minutes: group.duration_minutes,
+            valid_from: group.valid_from,
+          })),
+          ...(createAvailabilityDto.rules.recurrence_rule && {
+            recurrence_rule: {
+              ...createAvailabilityDto.rules.recurrence_rule,
+              dtstart: earliestValidFrom,
+              byweekday: null,
+            },
+          }),
+        },
+      };
+
+      // Создаём одну запись
+      const availability = await this.prisma.availability.create({
+        data: availabilityData,
+      });
+
+      return [availability];
+    }
+
     const availabilityPromises = intervalGroups.map((group) => {
       // Формируем данные для создания записи availability
       const availabilityData = {
