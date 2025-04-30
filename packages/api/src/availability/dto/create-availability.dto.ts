@@ -7,7 +7,7 @@ import {
   ValidateIf,
   ValidateNested,
 } from 'class-validator';
-import { AvailabilityRulesDto } from '../../rules/dto/availability-rules.dto';
+import { CreateAvailabilityRulesDto } from '../../rules/dto/create-availability-rules.dto';
 
 export class CreateAvailabilityDto {
   @ApiProperty({
@@ -34,23 +34,12 @@ export class CreateAvailabilityDto {
 
   @ApiProperty({
     description: 'Rules in JSON format',
-    type: AvailabilityRulesDto,
+    type: CreateAvailabilityRulesDto,
     example: {
       intervals: [
         {
-          start_time: '09:00',
-          end_time: '17:00',
-          days_of_week: ['MO', 'TU'],
-          valid_from: null,
-          valid_until: null,
-        },
-      ],
-      exceptions: [
-        {
-          date: '2025-05-02',
-          status: 'CLOSED',
-          start_time: null,
-          end_time: null,
+          start_date: '2025-05-05T23:00:00Z',
+          end_date: '2025-05-06T01:00:00Z',
         },
       ],
       recurrence_rule: {
@@ -63,6 +52,6 @@ export class CreateAvailabilityDto {
   })
   @IsDefined()
   @ValidateNested()
-  @Type(() => AvailabilityRulesDto)
-  rules!: AvailabilityRulesDto;
+  @Type(() => CreateAvailabilityRulesDto)
+  rules!: CreateAvailabilityRulesDto;
 }

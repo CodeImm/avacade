@@ -8,11 +8,8 @@
 {
   "intervals": [
     {
-      start_time: string; // "HH:mm"
-      end_time: string; // "HH:mm"
-      days_of_week: string[]; // ["MO", "TU", ...]
-      valid_from: string | null; // "YYYY-MM-DD"
-      valid_until: string | null; // "YYYY-MM-DD"
+      start_date: string; // "HH:mm"
+      end_date: string; // "HH:mm"
     }
   ],
   "exceptions": [
@@ -31,9 +28,7 @@
       interval?: number;
       count?: number | null; // or until!
       bysetpos?: number[] | null; // [1, -1]
-      bymonth?: number[] | null;
       bymonthday?: number[] | null; // [1, 15]
-      byhour?: number[] | null; // [9, 14]
   }
 }
 ```

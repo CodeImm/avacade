@@ -27,7 +27,7 @@ export class AvailabilitiesController {
   })
   async create(
     @Body() createAvailabilityDto: CreateAvailabilityDto,
-  ): Promise<Availability> {
+  ): Promise<Availability[]> {
     return this.availabilitiesService.create(createAvailabilityDto);
   }
 

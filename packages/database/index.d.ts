@@ -24,28 +24,28 @@ declare global {
     interface AvailabilityRules {
       // TODO: intervals иожет не быть, если есть exceptions
       intervals: Interval[];
-      exceptions?: Exception[];
+      // exceptions?: Exception[];
       recurrence_rule?: RecurrenceRule;
     }
 
     interface Interval {
-      start_time: string; // "HH:mm"
-      end_time: string; // "HH:mm"
-      days_of_week?: string[] | null; // ["MO", "TU", ...]
-      valid_from: string; // "YYYY-MM-DD"
-      valid_until: string; // "YYYY-MM-DD"
+      start_time: string;
+      end_time: string;
+      duration_minutes: number;
+      valid_from: DayOfWeek;
     }
 
-    interface Exception {
-      date: string; // "YYYY-MM-DD"
-      status: ExceptionStatus;
-      start_time: string | null; // "HH:mm"
-      end_time: string | null; // "HH:mm"
-    }
+    // interface Exception {
+    //   date: string; // "YYYY-MM-DD"
+    //   status: ExceptionStatus;
+    //   start_time: string | null; // "HH:mm"
+    //   end_time: string | null; // "HH:mm"
+    // }
 
     interface RecurrenceRule {
       frequency: RecurrenceFrequency;
-      dtstart: string | null; // "YYYY-MM-DD";
+      // TODO: сейчас не приходит
+      dtstart: string; // "YYYY-MM-DD";
       until?: string | null; // "YYYY-MM-DD"
       byweekday?: string[] | null; // ["MO", "TU", ...]
       interval?: number | null;

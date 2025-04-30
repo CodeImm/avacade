@@ -33,17 +33,8 @@ export class Availability implements PrismaAvailability {
         {
           start_time: '09:00',
           end_time: '17:00',
-          days_of_week: ['MO', 'TU'],
-          valid_from: null,
-          valid_until: null,
-        },
-      ],
-      exceptions: [
-        {
-          date: '2025-05-02',
-          status: 'CLOSED',
-          start_time: null,
-          end_time: null,
+          duration_minutes: 480,
+          valid_from: '2025-05-01',
         },
       ],
       recurrence_rule: {

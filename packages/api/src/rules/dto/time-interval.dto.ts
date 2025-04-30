@@ -1,13 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import {
-  IsArray,
-  IsDateString,
-  IsEnum,
-  IsOptional,
-  IsString,
-  Matches,
-} from 'class-validator';
-import { DayOfWeek } from '../types';
+import { IsDateString, IsInt, IsString, Matches, Min } from 'class-validator';
 
 export class TimeIntervalDto {
   @ApiProperty({ description: 'Start time in HH:mm format', example: '09:00' })
@@ -25,22 +17,15 @@ export class TimeIntervalDto {
   end_time!: string;
 
   @ApiProperty({
-    description: 'Days of the week',
-    enum: DayOfWeek,
-    isArray: true,
-    example: ['MO', 'TU'],
+    description: 'Duration in minutes',
+    example: 480,
   })
-  @IsArray({ message: 'days_of_week must be an array' })
-  @IsEnum(DayOfWeek, {
-    each: true,
-    message: 'Each day must be a valid DayOfWeek value',
-  })
-  @IsOptional()
-  days_of_week?: DayOfWeek[];
+  @IsInt({ message: 'Duration must be an integer' })
+  @Min(1, { message: 'Duration must be at least 1 minute' })
+  duration_minutes!: number;
 
   @ApiProperty({
     description: 'Valid from date in YYYY-MM-DD format',
-    nullable: true,
     example: '2025-05-01',
   })
   @IsDateString(
@@ -51,20 +36,5 @@ export class TimeIntervalDto {
       message: 'valid_from must be a valid ISO date string (YYYY-MM-DD)',
     },
   )
-  valid_from!: string | null;
-
-  @ApiProperty({
-    description: 'Valid until date in YYYY-MM-DD format',
-    nullable: true,
-    example: '2025-12-31',
-  })
-  @IsDateString(
-    {
-      strict: true,
-    },
-    {
-      message: 'valid_until must be a valid ISO date string (YYYY-MM-DD)',
-    },
-  )
-  valid_until!: string | null;
+  valid_from!: string;
 }
