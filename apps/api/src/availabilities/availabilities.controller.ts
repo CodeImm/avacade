@@ -58,7 +58,7 @@ export class AvailabilitiesController {
         'Either venueId or spaceId must be provided',
       );
     }
-
+    // TODO: обратить внимание на формат дат utc или что-то другое
     return this.availabilitiesService.findIntervalsByDateRange(
       startDate,
       endDate,

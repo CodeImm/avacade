@@ -99,7 +99,7 @@ export class AvailabilitiesService {
 
     createAvailabilityDto.timezone = timezone;
 
-    const availabilityPromises = this.buildAvailabilityCreatePromises(
+    const availabilityPromises = await this.buildAvailabilityCreatePromises(
       createAvailabilityDto,
     );
 
@@ -152,7 +152,7 @@ export class AvailabilitiesService {
     return this.prisma.availability.delete({ where: { id } });
   }
 
-  private buildAvailabilityCreatePromises(
+  private async buildAvailabilityCreatePromises(
     createAvailabilityDto: CreateAvailabilityDto,
   ) {
     const intervalGroups = this.groupIntervals(
@@ -160,14 +160,30 @@ export class AvailabilitiesService {
       createAvailabilityDto.timezone,
     );
 
-    return intervalGroups.map((group) => {
-      const availabilityData = this.buildAvailabilityData(
-        createAvailabilityDto,
-        group,
-      );
+    const newAvailabilities = intervalGroups.map((group) => {
+      return this.buildAvailabilityData(createAvailabilityDto, group);
+    });
 
+    // Validate all availabilities for intersections
+    await Promise.all(
+      newAvailabilities.map(async (newAvailability) => {
+        const overlappingIntervals =
+          await this.validateAvailabilityIntersections(
+            newAvailability as Availability,
+          );
+
+        console.log({ overlappingIntervals });
+
+        if (overlappingIntervals.length) {
+          throw new BadRequestException('Availability intervals overlap');
+        }
+      }),
+    );
+
+    // Create Prisma promises for valid availabilities
+    return newAvailabilities.map((newAvailability) => {
       return this.prisma.availability.create({
-        data: availabilityData,
+        data: newAvailability,
       });
     });
   }
@@ -283,116 +299,15 @@ export class AvailabilitiesService {
     // TODO: фильтровать availability по until нельза потому что интервал может заходить в другой день
     // нужно проверять с учетом duration
 
-    const intervals: Interval[] = [];
-
-    availabilities.forEach((availability) => {
-      const { id, rules, venueId, spaceId, timezone } = availability;
-      const { interval } = rules;
-      console.log(rules.interval);
-
-      const intervalStart = this.dayjs.tz(interval.valid_from, timezone).utc();
-      const intervalEnd = intervalStart.add(
-        interval.duration_minutes,
-        'minute',
-      );
-
-      if (!rules.recurrence_rule) {
-        //
-
-        if (intervalStart.isBefore(end) && intervalEnd.isAfter(start)) {
-          intervals.push({
-            start_date: intervalStart.toISOString(),
-            end_date: intervalEnd.toISOString(),
-            availability_id: id,
-            venueId,
-            spaceId,
-          });
-        }
-        return;
-      }
-
-      // Handle recurring intervals
-      const { recurrence_rule } = rules;
-
-      const dtstart = intervalStart;
-      const until = recurrence_rule.until
-        ? this.dayjs.utc(recurrence_rule.until)
-        : null;
-
-      // Check if rule's date range overlaps with requested range
-      // until && until.isBefore(start); - нельзя  потому что интервал может заходить в другой день
-      if (dtstart.isAfter(end)) {
-        return;
-      }
-
-      const localDtstart = intervalStart.tz(timezone);
-      // TODO: until - хранить в локльном времени?
-      const localUntil = recurrence_rule.until
-        ? this.dayjs.utc(recurrence_rule.until).tz(timezone)
-        : null;
-
-      // Parse recurrence rule
-      const rruleOptions: Partial<Options> = {
-        freq:
-          recurrence_rule.frequency === RecurrenceFrequency.DAILY
-            ? RRule.DAILY
-            : recurrence_rule.frequency === RecurrenceFrequency.MONTHLY
-              ? RRule.MONTHLY
-              : RRule.WEEKLY,
-        tzid: timezone,
-        dtstart: this.dayjsToDatetime(localDtstart),
-        byweekday: recurrence_rule.byweekday.map(
-          (day) =>
-            ({
-              MO: RRule.MO,
-              TU: RRule.TU,
-              WE: RRule.WE,
-              TH: RRule.TH,
-              FR: RRule.FR,
-              SA: RRule.SA,
-              SU: RRule.SU,
-            })[day],
-        ),
-        until: localUntil ? this.dayjsToDatetime(localUntil) : null,
-        interval: recurrence_rule.interval,
-        count: recurrence_rule.count,
-        bysetpos: recurrence_rule.bysetpos,
-        bymonthday: recurrence_rule.bymonthday,
-      };
-
-      const rule = new RRule(rruleOptions);
-
-      //TODO: должна быть таймзона запрошивающего пользователя (см. коммент выше)
-      const startLocal = this.dayjs
-        .tz(startDate, timezone)
-        .startOf('day')
-        .utc()
-        .toDate();
-      const endLocal = this.dayjs
-        .tz(endDate, timezone)
-        .endOf('day')
-        .utc()
-        .toDate();
-      const dates = rule.between(startLocal, endLocal, true).map((date) => {
-        // Преобразуем в строку в ISO формате (без format), чтобы сохранить точность
-        const local = this.dayjs.tz(date.toISOString(), timezone);
-        return local.utc().toDate();
-      });
-
-      // Generate intervals for each recurring date
-      dates.forEach((date) => {
-        const startDate = this.dayjs(date);
-        const endDate = startDate.add(interval.duration_minutes, 'minute');
-
-        intervals.push({
-          start_date: startDate.toISOString(),
-          end_date: endDate.toISOString(),
-          availability_id: id,
-          venueId,
-          spaceId,
-        });
-      });
-    });
+    const intervals: Interval[] = availabilities
+      .map((availability) => {
+        return this.generateAvailabilityIntervals(
+          availability,
+          startDate,
+          endDate,
+        );
+      })
+      .flat();
 
     const sortedIntervals = intervals.sort((a, b) =>
       this.dayjs(a.start_date).diff(this.dayjs(b.start_date)),
@@ -401,7 +316,121 @@ export class AvailabilitiesService {
     return sortedIntervals;
   }
 
-  // this.findOverlappingIntervals(sortedIntervals)
+  private generateAvailabilityIntervals(
+    availability: Availability,
+    startDate: string,
+    endDate: string,
+  ): Interval[] {
+    const intervals: Interval[] = [];
+
+    const { id, rules, venueId, spaceId, timezone } = availability;
+    const { interval } = rules;
+    console.log(rules.interval);
+
+    const start = this.dayjs.utc(startDate).startOf('day');
+    const end = this.dayjs.utc(endDate).add(1, 'day').startOf('day');
+
+    const intervalStart = this.dayjs.tz(interval.valid_from, timezone).utc();
+    const intervalEnd = intervalStart.add(interval.duration_minutes, 'minute');
+
+    if (!rules.recurrence_rule) {
+      //
+
+      if (intervalStart.isBefore(end) && intervalEnd.isAfter(start)) {
+        intervals.push({
+          start_date: intervalStart.toISOString(),
+          end_date: intervalEnd.toISOString(),
+          availability_id: id,
+          venueId,
+          spaceId,
+        });
+      }
+      return intervals;
+    }
+
+    // Handle recurring intervals
+    const { recurrence_rule } = rules;
+
+    const dtstart = intervalStart;
+    const until = recurrence_rule.until
+      ? this.dayjs.utc(recurrence_rule.until)
+      : null;
+
+    // Check if rule's date range overlaps with requested range
+    // until && until.isBefore(start); - нельзя  потому что интервал может заходить в другой день
+    if (dtstart.isAfter(end)) {
+      return [];
+    }
+
+    const localDtstart = intervalStart.tz(timezone);
+    // TODO: until - хранить в локльном времени?
+    const localUntil = recurrence_rule.until
+      ? this.dayjs.utc(recurrence_rule.until).tz(timezone)
+      : null;
+
+    // Parse recurrence rule
+    const rruleOptions: Partial<Options> = {
+      freq:
+        recurrence_rule.frequency === RecurrenceFrequency.DAILY
+          ? RRule.DAILY
+          : recurrence_rule.frequency === RecurrenceFrequency.MONTHLY
+            ? RRule.MONTHLY
+            : RRule.WEEKLY,
+      tzid: timezone,
+      dtstart: this.dayjsToDatetime(localDtstart),
+      byweekday: recurrence_rule.byweekday?.map(
+        (day) =>
+          ({
+            MO: RRule.MO,
+            TU: RRule.TU,
+            WE: RRule.WE,
+            TH: RRule.TH,
+            FR: RRule.FR,
+            SA: RRule.SA,
+            SU: RRule.SU,
+          })[day],
+      ),
+      until: localUntil ? this.dayjsToDatetime(localUntil) : null,
+      interval: recurrence_rule.interval,
+      count: recurrence_rule.count,
+      bysetpos: recurrence_rule.bysetpos,
+      bymonthday: recurrence_rule.bymonthday,
+    };
+
+    const rule = new RRule(rruleOptions);
+
+    //TODO: должна быть таймзона запрошивающего пользователя (см. коммент выше)
+    const startLocal = this.dayjs
+      .tz(startDate, timezone)
+      .startOf('day')
+      .utc()
+      .toDate();
+    const endLocal = this.dayjs
+      .tz(endDate, timezone)
+      .endOf('day')
+      .utc()
+      .toDate();
+    const dates = rule.between(startLocal, endLocal, true).map((date) => {
+      // Преобразуем в строку в ISO формате (без format), чтобы сохранить точность
+      const local = this.dayjs.tz(date.toISOString(), timezone);
+      return local.utc().toDate();
+    });
+
+    // Generate intervals for each recurring date
+    dates.forEach((date) => {
+      const startDate = this.dayjs(date);
+      const endDate = startDate.add(interval.duration_minutes, 'minute');
+
+      intervals.push({
+        start_date: startDate.toISOString(),
+        end_date: endDate.toISOString(),
+        availability_id: id,
+        venueId,
+        spaceId,
+      });
+    });
+    return intervals;
+  }
 
   private dayjsToDatetime(d: Dayjs) {
     return datetime(
@@ -412,6 +441,48 @@ export class AvailabilitiesService {
       d.minute(),
       d.second(),
     );
+  }
+
+  private async validateAvailabilityIntersections(
+    newAvailability: Availability,
+  ): Promise<any[]> {
+    const { venueId, spaceId } = newAvailability;
+    const whereClause = venueId ? { venueId } : { spaceId };
+
+    const availabilities = await this.prisma.availability.findMany({
+      where: {
+        ...whereClause,
+      },
+    });
+
+    const startDate = this.dayjs
+      .tz(newAvailability.rules.interval.valid_from, newAvailability.timezone)
+      .utc();
+
+    const endDate = startDate.add(12, 'month');
+
+    const newAvailabilityIntervals = this.generateAvailabilityIntervals(
+      newAvailability,
+      startDate.toISOString(),
+      endDate.toISOString(),
+    );
+
+    const dbAvailabilityIntervals = availabilities
+      .map((a) =>
+        this.generateAvailabilityIntervals(
+          a,
+          startDate.toISOString(),
+          endDate.toISOString(),
+        ),
+      )
+      .flat();
+
+    const sortedIntervals = [
+      ...newAvailabilityIntervals,
+      ...dbAvailabilityIntervals,
+    ].sort((a, b) => this.dayjs(a.start_date).diff(this.dayjs(b.start_date)));
+
+    return this.findOverlappingIntervals(sortedIntervals);
   }
 
   private findOverlappingIntervals(intervals) {

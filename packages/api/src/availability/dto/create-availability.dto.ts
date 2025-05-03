@@ -1,4 +1,4 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
   IsDefined,
@@ -8,7 +8,6 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { CreateAvailabilityRulesDto } from '../../rules/dto/create-availability-rules.dto';
-import { Optional } from '@nestjs/common';
 
 export class CreateAvailabilityDto {
   @ApiProperty({
