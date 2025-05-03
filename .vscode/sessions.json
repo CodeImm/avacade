@@ -11,7 +11,9 @@
         "autoExecuteCommands": true,
         "icon": "dash",
         "color": "terminal.ansiGreen",
-        "commands": ["echo hello"]
+        "commands": [
+          "echo hello"
+        ]
       },
       [
         {
@@ -19,7 +21,9 @@
           "icon": "notebook-execute",
           "color": "terminal.ansiGreen",
           "autoExecuteCommands": true,
-          "commands": ["pnpm run dev"]
+          "commands": [
+            "pnpm run dev"
+          ]
         }
       ],
       [
@@ -27,7 +31,9 @@
           "name": "app:api",
           "icon": "folder-opened",
           "autoExecuteCommands": true,
-          "commands": ["cd ./apps/api"]
+          "commands": [
+            "cd ./apps/api"
+          ]
         }
       ],
       [
@@ -35,19 +41,25 @@
           "name": "prisma studio",
           "icon": "database",
           "autoExecuteCommands": true,
-          "commands": ["cd ./packages/database && pnpm prisma studio"]
+          "commands": [
+            "cd ./packages/database && pnpm prisma studio"
+          ]
         }
       ],
       [
         {
           "name": "package:api",
           "autoExecuteCommands": true,
-          "commands": ["cd ./packages/api"]
+          "commands": [
+            "cd ./packages/api"
+          ]
         },
         {
           "name": "package:db",
           "autoExecuteCommands": true,
-          "commands": ["cd ./packages/database"]
+          "commands": [
+            "cd ./packages/database"
+          ]
         }
       ]
     ]

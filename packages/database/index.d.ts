@@ -23,7 +23,7 @@ declare global {
 
     interface AvailabilityRules {
       // TODO: intervals иожет не быть, если есть exceptions
-      intervals: Interval[];
+      interval: Interval;
       // exceptions?: Exception[];
       recurrence_rule?: RecurrenceRule;
     }
@@ -32,7 +32,7 @@ declare global {
       start_time: string;
       end_time: string;
       duration_minutes: number;
-      valid_from: DayOfWeek;
+      valid_from: string;
     }
 
     // interface Exception {

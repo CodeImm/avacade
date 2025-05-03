@@ -31,6 +31,7 @@ model Venue {
   id             String         @id @default(uuid())
   name           String
   organizationId String
+  timezone       String
   organization   Organization   @relation(fields: [organizationId], references: [id])
   Space          Space[]
   createdAt      DateTime       @default(now())
@@ -55,6 +56,7 @@ model Availability {
   id        String   @id @default(uuid())
   venueId   String?
   spaceId   String?
+  timezone  String
   /// [AvailabilityRules]
   rules     Json
   venue     Venue?   @relation(fields: [venueId], references: [id], onDelete: Cascade)

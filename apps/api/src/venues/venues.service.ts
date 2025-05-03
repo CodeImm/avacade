@@ -3,8 +3,8 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
 import { CreateVenueDto, Space, UpdateVenueDto, Venue } from '@repo/api';
+import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class VenuesService {

@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsDateString, IsInt, IsString, Matches, Min } from 'class-validator';
+import { IsInt, IsISO8601, IsString, Matches, Min } from 'class-validator';
 
 export class TimeIntervalDto {
   @ApiProperty({ description: 'Start time in HH:mm format', example: '09:00' })
@@ -25,15 +25,15 @@ export class TimeIntervalDto {
   duration_minutes!: number;
 
   @ApiProperty({
-    description: 'Valid from date in YYYY-MM-DD format',
-    example: '2025-05-01',
+    description:
+      'Valid from date and time in local timezone (YYYY-MM-DDTHH:mm:ss)',
+    example: '2025-05-03T00:00:00',
   })
-  @IsDateString(
+  @IsISO8601(
+    { strict: false }, // Разрешаем YYYY-MM-DDTHH:mm:ss без Z или смещения
     {
-      strict: true,
-    },
-    {
-      message: 'valid_from must be a valid ISO date string (YYYY-MM-DD)',
+      message:
+        'valid_from must be a valid ISO 8601 date string (YYYY-MM-DDTHH:mm:ss)',
     },
   )
   valid_from!: string;

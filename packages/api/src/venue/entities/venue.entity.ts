@@ -21,6 +21,12 @@ export class Venue implements PrismaVenue {
   organizationId!: string;
 
   @ApiProperty({
+    description: 'Time zone of the venue in IANA format',
+    example: 'America/New_York',
+  })
+  timezone!: string;
+
+  @ApiProperty({
     description: 'Creation time of the venue',
     type: String,
     format: 'date-time',

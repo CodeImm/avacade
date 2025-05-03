@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -6,6 +7,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
 } from '@nestjs/common';
 import { ApiCreatedResponse, ApiOkResponse, ApiTags } from '@nestjs/swagger';
 import {
@@ -13,7 +15,7 @@ import {
   CreateAvailabilityDto,
   UpdateAvailabilityDto,
 } from '@repo/api';
-import { AvailabilitiesService } from './availabilities.service';
+import { AvailabilitiesService, Interval } from './availabilities.service';
 
 @ApiTags('availabilities')
 @Controller('availabilities')
@@ -38,6 +40,31 @@ export class AvailabilitiesController {
   })
   async findAll(): Promise<Availability[]> {
     return this.availabilitiesService.findAll();
+  }
+
+  @Get('/intervals')
+  async findIntervals(
+    @Query('startDate') startDate: string,
+    @Query('endDate') endDate: string,
+    @Query('venueId') venueId?: string,
+    @Query('spaceId') spaceId?: string,
+  ): Promise<Interval[]> {
+    if (!startDate || !endDate) {
+      throw new BadRequestException('Both startDate and endDate are required');
+    }
+
+    if (!venueId && !spaceId) {
+      throw new BadRequestException(
+        'Either venueId or spaceId must be provided',
+      );
+    }
+
+    return this.availabilitiesService.findIntervalsByDateRange(
+      startDate,
+      endDate,
+      venueId,
+      spaceId,
+    );
   }
 
   @Get(':id')

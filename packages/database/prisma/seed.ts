@@ -13,6 +13,7 @@ async function main() {
     data: {
       name: 'Main Venue',
       organizationId: organization.id,
+      timezone: 'Europe/Moscow',
     },
   });
 
@@ -39,24 +40,15 @@ async function main() {
   await prisma.availability.create({
     data: {
       spaceId: space1.id,
+      timezone: 'Europe/Moscow',
       rules: {
-        intervals: [
-          {
-            start_time: '09:00',
-            end_time: '18:00',
-            days_of_week: ['MO', 'WE', 'FR'],
-            valid_from: '2025-01-01',
-            valid_until: null,
-          },
-        ],
-        exceptions: [
-          {
-            date: '2025-04-23',
-            status: 'CLOSED',
-            start_time: null,
-            end_time: null,
-          },
-        ],
+        interval: {
+          start_time: '09:00',
+          end_time: '18:00',
+          days_of_week: ['MO', 'WE', 'FR'],
+          valid_from: '2025-01-01T09:00',
+          valid_until: null,
+        },
         recurrence_rule: {
           frequency: 'WEEKLY',
           interval: 1,
@@ -70,24 +62,15 @@ async function main() {
   await prisma.availability.create({
     data: {
       spaceId: space2.id,
+      timezone: 'Europe/Moscow',
       rules: {
-        intervals: [
-          {
-            start_time: '09:00',
-            end_time: '18:00',
-            days_of_week: ['MO', 'WE', 'FR'],
-            valid_from: '2025-01-01',
-            valid_until: null,
-          },
-        ],
-        exceptions: [
-          {
-            date: '2025-04-23',
-            status: 'CLOSED',
-            start_time: null,
-            end_time: null,
-          },
-        ],
+        interval: {
+          start_time: '09:00',
+          end_time: '18:00',
+          days_of_week: ['MO', 'WE', 'FR'],
+          valid_from: '2025-01-01T09:00',
+          valid_until: null,
+        },
         recurrence_rule: {
           frequency: 'WEEKLY',
           interval: 1,

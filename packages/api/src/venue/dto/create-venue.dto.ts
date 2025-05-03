@@ -11,4 +11,12 @@ export class CreateVenueDto {
   @IsNotEmpty()
   @ApiProperty({ type: String })
   organizationId!: string;
+
+  @ApiProperty({
+    description: 'Time zone of the venue in IANA format',
+    example: 'America/New_York',
+  })
+  @IsString()
+  @IsNotEmpty()
+  timezone!: string;
 }
