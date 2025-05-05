@@ -11,8 +11,11 @@ export * from './space/dto/update-space.dto';
 export * from './space/entities/space.entity';
 
 export * from './availability/dto/create-availability.dto';
-export * from './availability/entities/availability.entity';
+export * from './availability/dto/delete-availability-query.dto';
+export * from './availability/dto/find-intervals-query.dto';
+export * from './availability/dto/interval.dto';
 export * from './availability/dto/update-availability.dto';
+export * from './availability/entities/availability.entity';
 
 export * from './rules/dto/create-time-interval.dto';
 export * from './rules/dto/exception.dto';
@@ -24,4 +27,3 @@ export * from './event/dto/create-event.dto';
 export * from './event/dto/update-event.dto';
 export * from './event/entities/event.entity';
 export * from './event/types';
-

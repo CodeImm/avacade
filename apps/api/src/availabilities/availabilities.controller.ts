@@ -14,14 +14,19 @@ import {
   ApiCreatedResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
+  ApiQuery,
   ApiTags,
 } from '@nestjs/swagger';
 import {
   Availability,
   CreateAvailabilityDto,
+  FindIntervalsQueryDto,
+  Interval,
+  IntervalDto,
   UpdateAvailabilityDto,
+  DeleteAvailabilityQueryDto,
 } from '@repo/api';
-import { AvailabilitiesService, Interval } from './availabilities.service';
+import { AvailabilitiesService } from './availabilities.service';
 
 @ApiTags('availabilities')
 @Controller('availabilities')
@@ -30,8 +35,11 @@ export class AvailabilitiesController {
 
   @Post()
   @ApiCreatedResponse({
-    type: Availability,
+    type: [Availability],
     description: 'Availability created successfully',
+  })
+  @ApiBadRequestResponse({
+    description: 'Invalid availability data',
   })
   async create(
     @Body() createAvailabilityDto: CreateAvailabilityDto,
@@ -49,22 +57,45 @@ export class AvailabilitiesController {
   }
 
   @Get('/intervals')
+  @ApiOkResponse({
+    type: [IntervalDto],
+    description: 'List of availability intervals for the specified date range',
+  })
+  @ApiBadRequestResponse({
+    description:
+      'Missing startDate/endDate or neither venueId nor spaceId provided',
+  })
+  @ApiQuery({
+    name: 'startDate',
+    required: true,
+    description: 'Start date in YYYY-MM-DD format',
+  })
+  @ApiQuery({
+    name: 'endDate',
+    required: true,
+    description: 'End date in YYYY-MM-DD format',
+  })
+  @ApiQuery({
+    name: 'venueId',
+    required: false,
+    description: 'UUID of the venue (optional if spaceId provided)',
+  })
+  @ApiQuery({
+    name: 'spaceId',
+    required: false,
+    description: 'UUID of the space (optional if venueId provided)',
+  })
   async findIntervals(
-    @Query('startDate') startDate: string,
-    @Query('endDate') endDate: string,
-    @Query('venueId') venueId?: string,
-    @Query('spaceId') spaceId?: string,
+    @Query() query: FindIntervalsQueryDto,
   ): Promise<Interval[]> {
-    if (!startDate || !endDate) {
-      throw new BadRequestException('Both startDate and endDate are required');
-    }
+    const { startDate, endDate, venueId, spaceId } = query;
 
     if (!venueId && !spaceId) {
       throw new BadRequestException(
         'Either venueId or spaceId must be provided',
       );
     }
-    // TODO: обратить внимание на формат дат utc или что-то другое
+
     return this.availabilitiesService.findIntervalsByDateRange(
       startDate,
       endDate,
@@ -78,36 +109,26 @@ export class AvailabilitiesController {
     type: Availability,
     description: 'Details of a specific availability rule',
   })
+  @ApiNotFoundResponse({
+    description: 'Availability not found',
+  })
+  @ApiBadRequestResponse({
+    description: 'Invalid UUID format',
+  })
   async findOne(@Param('id') id: string): Promise<Availability> {
     return this.availabilitiesService.findOne(id);
   }
-
-  // @Get('/venues/:venueId/availability')
-  // @ApiOkResponse({
-  //   type: [Availability],
-  //   description: 'Availability rules for a specific venue',
-  // })
-  // async findByVenue(
-  //   @Param('venueId') venueId: string,
-  // ): Promise<Availability[]> {
-  //   return this.availabilitiesService.findByEntity({ venueId });
-  // }
-
-  // @Get('/spaces/:spaceId/availability')
-  // @ApiOkResponse({
-  //   type: [Availability],
-  //   description: 'Availability rules for a specific space',
-  // })
-  // async findBySpace(
-  //   @Param('spaceId') spaceId: string,
-  // ): Promise<Availability[]> {
-  //   return this.availabilitiesService.findByEntity({ spaceId });
-  // }
 
   @Patch(':id')
   @ApiOkResponse({
     type: Availability,
     description: 'Availability updated successfully',
+  })
+  @ApiNotFoundResponse({
+    description: 'Availability not found',
+  })
+  @ApiBadRequestResponse({
+    description: 'Invalid UUID format or invalid update data',
   })
   async update(
     @Param('id') id: string,
@@ -130,11 +151,13 @@ export class AvailabilitiesController {
   })
   async remove(
     @Param('id') id: string,
-    @Query('date') date?: string,
-  ): Promise<Availability | { success: boolean }> {
-    if (date) {
-      console.log({ date });
-      return this.availabilitiesService.deleteAvailability(id, date);
+    @Query() query: DeleteAvailabilityQueryDto,
+  ): Promise<Availability | Availability[]> {
+    if (query.date) {
+      return this.availabilitiesService.deleteAvailability(
+        id,
+        query.date,
+      ) as any;
     }
     return this.availabilitiesService.remove(id);
   }

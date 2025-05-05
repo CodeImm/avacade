@@ -5,14 +5,10 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 
-import {
-  Availability,
-  CreateAvailabilityDto,
-  RecurrenceFrequency,
-} from '@repo/api';
+import { Availability, CreateAvailabilityDto, Interval } from '@repo/api';
+import { Dayjs } from 'dayjs';
 import { datetime, RRule, type Options } from 'rrule';
 import { PrismaService } from '../prisma/prisma.service';
-import { Dayjs } from 'dayjs';
 
 interface TimeIntervalGroup {
   start_time: string;
@@ -20,14 +16,6 @@ interface TimeIntervalGroup {
   duration_minutes: number;
   intervals: CreateAvailabilityDto['rules']['intervals'];
   valid_from: string;
-}
-
-export interface Interval {
-  start_date: string; // ISO 8601 string with date and time (e.g., 2025-05-01T12:00:00.000Z)
-  end_date: string; // ISO 8601 string with date and time (e.g., 2025-05-01T14:00:00.000Z)
-  availability_id: string;
-  venueId?: string | null;
-  spaceId?: string | null;
 }
 
 @Injectable()
@@ -602,6 +590,7 @@ export class AvailabilitiesService {
           .format('YYYY-MM-DD');
 
         // Check if until is on or before targetDate
+        // TODO: также надо учесть если удаляем первый день в рекуррентоном правиле
         if (localUntil && localUntil.isSameOrBefore(localTargetDate, 'day')) {
           // No intervals remain after targetDate, update until to previous day
 
