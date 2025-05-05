@@ -9,7 +9,13 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
-import { ApiCreatedResponse, ApiOkResponse, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBadRequestResponse,
+  ApiCreatedResponse,
+  ApiNotFoundResponse,
+  ApiOkResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import {
   Availability,
   CreateAvailabilityDto,
@@ -115,7 +121,21 @@ export class AvailabilitiesController {
     type: Availability,
     description: 'Availability deleted successfully',
   })
-  async remove(@Param('id') id: string): Promise<Availability> {
+  @ApiBadRequestResponse({
+    description:
+      'Invalid date format or no interval found for the specified date',
+  })
+  @ApiNotFoundResponse({
+    description: 'Availability not found',
+  })
+  async remove(
+    @Param('id') id: string,
+    @Query('date') date?: string,
+  ): Promise<Availability | { success: boolean }> {
+    if (date) {
+      console.log({ date });
+      return this.availabilitiesService.deleteAvailability(id, date);
+    }
     return this.availabilitiesService.remove(id);
   }
 }

@@ -370,12 +370,7 @@ export class AvailabilitiesService {
 
     // Parse recurrence rule
     const rruleOptions: Partial<Options> = {
-      freq:
-        recurrence_rule.frequency === RecurrenceFrequency.DAILY
-          ? RRule.DAILY
-          : recurrence_rule.frequency === RecurrenceFrequency.MONTHLY
-            ? RRule.MONTHLY
-            : RRule.WEEKLY,
+      freq: this.mapFrequency(recurrence_rule.frequency),
       tzid: timezone,
       dtstart: this.dayjsToDatetime(localDtstart),
       byweekday: recurrence_rule.byweekday?.map(
@@ -518,5 +513,166 @@ export class AvailabilitiesService {
     }
 
     return overlaps;
+  }
+
+  async deleteAvailability(id: string, date: string) {
+    const parsed = this.dayjs(date, 'YYYY-MM-DD', true); // strict = true
+    if (!parsed.isValid()) {
+      throw new BadRequestException('Invalid date format');
+    }
+
+    const availability = await this.prisma.availability.findUnique({
+      where: { id },
+    });
+
+    if (!availability) {
+      throw new NotFoundException(`Availability with ID ${id} not found`);
+    }
+
+    const targetDate = this.dayjs.utc(date).startOf('day');
+    const timezone = availability.timezone;
+
+    const { interval, recurrence_rule } = availability.rules;
+    const intervalStart = this.dayjs.tz(interval.valid_from, timezone).utc();
+    const intervalEnd = intervalStart.add(interval.duration_minutes, 'minute');
+
+    // Check if interval exists on the specified date
+    let hasIntervalOnDate = false;
+
+    if (!recurrence_rule) {
+      // Non-recurring: check if interval overlaps with target date
+      hasIntervalOnDate =
+        intervalStart.isSameOrBefore(targetDate, 'day') &&
+        intervalEnd.isSameOrAfter(targetDate, 'day');
+    } else {
+      const localUntil = recurrence_rule.until
+        ? this.dayjs.utc(recurrence_rule.until).tz(timezone)
+        : null;
+
+      // Recurring: check if any occurrence falls on target date
+      const rruleOptions: Partial<Options> = {
+        freq: this.mapFrequency(recurrence_rule.frequency),
+        tzid: timezone,
+        dtstart: this.dayjsToDatetime(intervalStart.tz(timezone)),
+        byweekday: recurrence_rule.byweekday?.map((day) => RRule[day]),
+        // перевод в локальное время?
+        until: localUntil ? this.dayjsToDatetime(localUntil) : null,
+        interval: recurrence_rule.interval,
+        count: recurrence_rule.count,
+        bysetpos: recurrence_rule.bysetpos,
+        bymonthday: recurrence_rule.bymonthday,
+      };
+
+      const rule = new RRule(rruleOptions);
+      const startLocal = this.dayjs
+        .tz(targetDate, timezone)
+        .startOf('day')
+        .utc()
+        .toDate();
+      const endLocal = this.dayjs
+        .tz(targetDate, timezone)
+        .endOf('day')
+        .utc()
+        .toDate();
+      const dates = rule.between(startLocal, endLocal, true);
+
+      hasIntervalOnDate = dates.length > 0;
+    }
+
+    if (!hasIntervalOnDate) {
+      throw new BadRequestException('No interval found for the specified date');
+    }
+    console.log({ hasIntervalOnDate });
+    return this.prisma.$transaction(async (tx) => {
+      if (!recurrence_rule) {
+        // Non-recurring: delete the availability
+        await tx.availability.delete({
+          where: { id },
+        });
+      } else {
+        const localTargetDate = this.dayjs
+          .utc(targetDate)
+          .tz(timezone)
+          .startOf('day');
+        const localUntil = recurrence_rule.until
+          ? this.dayjs.utc(recurrence_rule.until).tz(timezone).startOf('day')
+          : null;
+        const untilDate = this.dayjs(targetDate)
+          .subtract(1, 'day')
+          .format('YYYY-MM-DD');
+
+        // Check if until is on or before targetDate
+        if (localUntil && localUntil.isSameOrBefore(localTargetDate, 'day')) {
+          // No intervals remain after targetDate, update until to previous day
+
+          const current = await tx.availability.findUniqueOrThrow({
+            where: { id },
+            select: { rules: true },
+          });
+
+          current.rules.recurrence_rule.until = untilDate;
+
+          await tx.availability.update({
+            where: { id },
+            data: {
+              rules: current.rules,
+            },
+          });
+        } else {
+          const current = await tx.availability.findUniqueOrThrow({
+            where: { id },
+            select: { rules: true },
+          });
+
+          current.rules.recurrence_rule.until = untilDate;
+
+          await tx.availability.update({
+            where: { id },
+            data: {
+              rules: current.rules,
+            },
+          });
+          // Create new availability starting after the target date
+          const newIntervalStart = this.dayjs(targetDate)
+            .add(1, 'day')
+            .tz(timezone)
+            .startOf('day')
+            .format('YYYY-MM-DDTHH:mm:ss');
+
+          await tx.availability.create({
+            data: {
+              ...availability,
+              id: undefined,
+              rules: {
+                ...availability.rules,
+                interval: {
+                  ...availability.rules.interval,
+                  valid_from: newIntervalStart,
+                },
+                recurrence_rule: {
+                  ...availability.rules.recurrence_rule,
+                  until: availability.rules.recurrence_rule.until,
+                },
+              },
+            },
+          });
+        }
+      }
+
+      return { success: true };
+    });
+  }
+
+  private mapFrequency(frequency: string) {
+    switch (frequency) {
+      case 'DAILY':
+        return RRule.DAILY;
+      case 'WEEKLY':
+        return RRule.WEEKLY;
+      case 'MONTHLY':
+        return RRule.MONTHLY;
+      default:
+        throw new BadRequestException('Invalid recurrence frequency');
+    }
   }
 }
