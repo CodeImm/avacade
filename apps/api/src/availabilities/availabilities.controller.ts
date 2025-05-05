@@ -154,11 +154,9 @@ export class AvailabilitiesController {
     @Query() query: DeleteAvailabilityQueryDto,
   ): Promise<Availability | Availability[]> {
     if (query.date) {
-      return this.availabilitiesService.deleteAvailability(
-        id,
-        query.date,
-      ) as any;
+      return this.availabilitiesService.remove(id, query.date);
     }
+
     return this.availabilitiesService.remove(id);
   }
 }

@@ -6,7 +6,7 @@ import { StartDateBeforeEndDateConstraint } from '../../common/validators/start-
 export interface Interval {
   start_date: string; // Date in YYYY-MM-DD format (e.g., 2025-05-01)
   end_date: string; // Date in YYYY-MM-DD format (e.g., 2025-05-01)
-  availability_id: string;
+  availability_id?: string | null;
   venueId?: string | null;
   spaceId?: string | null;
 }
