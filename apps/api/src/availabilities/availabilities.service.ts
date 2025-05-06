@@ -420,7 +420,7 @@ export class AvailabilitiesService {
     return sortedIntervals;
   }
 
-  private generateAvailabilityIntervals(
+  public generateAvailabilityIntervals(
     availability:
       | Omit<Availability, 'id' | 'createdAt' | 'updatedAt'>
       | Availability,
@@ -517,7 +517,7 @@ export class AvailabilitiesService {
     // Generate intervals for each recurring date
     dates.forEach((date) => {
       const startDate = this.dayjs(date);
-      const endDate = startDate.add(interval.duration_minutes, 'minute');
+      const endDate = startDate.add(interval.duration_minutes, 'minutes');
 
       intervals.push({
         start_date: startDate.toISOString(),
@@ -527,6 +527,7 @@ export class AvailabilitiesService {
         spaceId,
       });
     });
+
     return intervals;
   }
 

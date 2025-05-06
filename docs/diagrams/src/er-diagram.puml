@@ -232,8 +232,8 @@ entity Event {
   +id : uuid
   +space_id : uuid
   +title : string
-  +start_time : datetime
-  +end_time : datetime
+  +interval : Json
+  +recurrence_rule? : Json
   +status : EventStatus
   --
   +specialist_id : uuid

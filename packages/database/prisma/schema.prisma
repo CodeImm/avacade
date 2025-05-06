@@ -66,15 +66,18 @@ model Availability {
 }
 
 model Event {
-  id        String   @id @default(uuid())
-  spaceId   String
-  title     String
-  startTime DateTime
-  endTime   DateTime
+  id              String   @id @default(uuid())
+  spaceId         String
+  title           String
+  timezone        String
+  /// [Interval]
+  interval        Json
+  /// [RecurrenceRule]
+  recurrence_rule Json?
   /// [EventStatus] 
-  status    String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  status          String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   // Relations
   space Space? @relation(fields: [spaceId], references: [id])

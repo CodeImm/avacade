@@ -1,5 +1,7 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import type { Event as PrismaEvent } from '@repo/db';
+import { RecurrenceRuleDto } from '../../rules/dto/recurrence-rule.dto';
+import { TimeIntervalDto } from '../../rules/dto/time-interval.dto';
 import { EventStatus } from '../types';
 
 export class Event implements PrismaEvent {
@@ -26,20 +28,10 @@ export class Event implements PrismaEvent {
   title!: string;
 
   @ApiProperty({
-    description: 'Start time of the event (ISO 8601 format)',
-    type: String,
-    format: 'date-time',
-    example: '2025-04-25T15:00:00Z',
+    description: 'Time zone of the event in IANA format',
+    example: 'America/New_York',
   })
-  startTime!: Date;
-
-  @ApiProperty({
-    description: 'End time of the event (ISO 8601 format)',
-    type: String,
-    format: 'date-time',
-    example: '2025-04-25T15:00:00Z',
-  })
-  endTime!: Date;
+  timezone!: string;
 
   @ApiProperty({
     description: 'Status of the event',
@@ -47,6 +39,24 @@ export class Event implements PrismaEvent {
     example: EventStatus.PLANNED,
   })
   status!: EventStatus;
+
+  @ApiProperty({
+    description: 'Time interval of the event',
+    type: TimeIntervalDto,
+  })
+  interval!: TimeIntervalDto;
+
+  @ApiPropertyOptional({
+    description: 'Recurrence rule',
+    type: RecurrenceRuleDto,
+    example: {
+      frequency: 'WEEKLY',
+      interval: 1,
+      until: null,
+      byweekday: ['MO', 'TU'],
+    },
+  })
+  recurrence_rule!: RecurrenceRuleDto;
 
   @ApiProperty({
     description: 'Creation timestamp of the event (ISO 8601 format)',

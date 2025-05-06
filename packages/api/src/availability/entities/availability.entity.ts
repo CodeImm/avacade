@@ -35,14 +35,12 @@ export class Availability implements PrismaAvailability {
     description: 'Rules in JSON format',
     type: AvailabilityRulesDto,
     example: {
-      interval: [
-        {
-          start_time: '09:00',
-          end_time: '17:00',
-          duration_minutes: 480,
-          valid_from: '2025-05-03T09:00:00',
-        },
-      ],
+      interval: {
+        start_time: '09:00',
+        end_time: '17:00',
+        duration_minutes: 480,
+        valid_from: '2025-05-03T09:00:00',
+      },
       recurrence_rule: {
         frequency: 'WEEKLY',
         interval: 1,

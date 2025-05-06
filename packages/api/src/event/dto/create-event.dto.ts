@@ -1,28 +1,17 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
 import {
-  IsDateString,
   IsEnum,
   IsNotEmpty,
+  IsOptional,
   IsString,
   IsUUID,
-  Validate,
-  ValidationArguments,
-  ValidatorConstraint,
-  ValidatorConstraintInterface,
+  ValidateNested,
 } from 'class-validator';
+import { CreateRecurrenceRuleDto } from '../../rules/dto/create-recurrence-rule.dto';
+import { CreateTimeIntervalDto } from '../../rules/dto/create-time-interval.dto';
+import { RecurrenceRuleDto } from '../../rules/dto/recurrence-rule.dto';
 import { EventStatus } from '../types';
-
-@ValidatorConstraint({ name: 'TimeOrder', async: false })
-class TimeOrderConstraint implements ValidatorConstraintInterface {
-  validate(_value: any, args: ValidationArguments) {
-    const { startTime, endTime } = args.object as CreateEventDto;
-    return new Date(startTime) < new Date(endTime);
-  }
-
-  defaultMessage() {
-    return 'startTime must be before endTime';
-  }
-}
 
 export class CreateEventDto {
   @ApiProperty({
@@ -44,25 +33,39 @@ export class CreateEventDto {
   title!: string;
 
   @ApiProperty({
-    description: 'Start time of the event (ISO 8601 format)',
-    example: '2025-05-01T09:00:00Z',
-    type: String,
+    description: 'Time zone of the event in IANA format',
+    example: 'America/New_York',
   })
-  @IsDateString({
-    strict: true,
-  })
-  @Validate(TimeOrderConstraint)
-  startTime!: string;
+  @IsString()
+  @IsNotEmpty()
+  timezone!: string;
 
   @ApiProperty({
-    description: 'End time of the event (ISO 8601 format)',
-    example: '2025-05-01T10:00:00Z',
-    type: String,
+    description: 'Time interval',
+    type: () => CreateTimeIntervalDto,
+    example: {
+      start_date: '2025-05-05T23:00:00Z',
+      end_date: '2025-05-06T01:00:00Z',
+    },
   })
-  @IsDateString({
-    strict: true,
+  @ValidateNested()
+  @Type(() => CreateTimeIntervalDto)
+  interval!: CreateTimeIntervalDto;
+
+  @ApiPropertyOptional({
+    description: 'Recurrence rule',
+    type: RecurrenceRuleDto,
+    example: {
+      frequency: 'WEEKLY',
+      interval: 1,
+      until: null,
+      byweekday: ['MO', 'TU'],
+    },
   })
-  endTime!: string;
+  @ValidateNested()
+  @Type(() => CreateRecurrenceRuleDto)
+  @IsOptional()
+  recurrence_rule?: CreateRecurrenceRuleDto;
 
   @ApiProperty({
     description: 'Status of the event',
