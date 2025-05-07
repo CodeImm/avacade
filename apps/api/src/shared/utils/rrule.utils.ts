@@ -1,9 +1,8 @@
 import { BadRequestException } from '@nestjs/common';
-import { RRule, Frequency } from 'rrule';
-import { datetime, Weekday } from 'rrule';
 import { Dayjs } from 'dayjs';
+import { datetime, Frequency, RRule, Weekday, type Options } from 'rrule';
 
-import { DayOfWeek } from '@repo/api';
+import { Availability, DayOfWeek } from '@repo/api';
 
 /**
  * Преобразует строковое значение частоты в соответствующую константу RRule.
@@ -50,4 +49,23 @@ const weekdayMap: Record<DayOfWeek, Weekday> = {
 export function mapByWeekday(days?: DayOfWeek[] | null): Weekday[] | undefined {
   if (!days) return undefined;
   return days.map((day) => weekdayMap[day]);
+}
+
+export function createRRuleOptions(
+  recurrenceRule: NonNullable<Availability['rules']['recurrence_rule']>,
+  timezone: string,
+  dtstart: Dayjs,
+  until?: Dayjs | null,
+): Partial<Options> {
+  return {
+    freq: mapFrequency(recurrenceRule.frequency),
+    tzid: timezone,
+    dtstart: dayjsToDatetime(dtstart),
+    byweekday: mapByWeekday(recurrenceRule.byweekday),
+    until: until ? dayjsToDatetime(until) : null,
+    interval: recurrenceRule.interval,
+    count: recurrenceRule.count,
+    bysetpos: recurrenceRule.bysetpos,
+    bymonthday: recurrenceRule.bymonthday,
+  };
 }

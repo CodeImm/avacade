@@ -1,35 +1,48 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
   IsDefined,
   IsNotEmpty,
+  IsOptional,
   IsString,
-  ValidateIf,
+  Validate,
   ValidateNested,
+  ValidationArguments,
+  ValidatorConstraint,
+  ValidatorConstraintInterface,
 } from 'class-validator';
 import { CreateAvailabilityRulesDto } from '../../rules/dto/create-availability-rules.dto';
 
+@ValidatorConstraint({ name: 'OnlyOneIdProvided', async: false })
+class OnlyOneIdProvidedConstraint implements ValidatorConstraintInterface {
+  validate(_: any, args: ValidationArguments) {
+    const obj = args.object as any;
+    return !!(obj.venueId && !obj.spaceId) || !!(obj.spaceId && !obj.venueId);
+  }
+
+  defaultMessage(args: ValidationArguments) {
+    return 'Either venueId or spaceId must be provided, but not both.';
+  }
+}
+
 export class CreateAvailabilityDto {
-  @ApiProperty({
+  @ApiPropertyOptional({
     description:
       'The unique identifier of the venue. Either venueId or spaceId must be provided.',
     type: String,
-    required: false, // не обязательное поле, так как используется ValidateIf
   })
   @IsString()
-  @IsNotEmpty()
-  @ValidateIf((o) => !o.spaceId)
+  @IsOptional()
+  @Validate(OnlyOneIdProvidedConstraint)
   venueId?: string;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     description:
       'The unique identifier of the space. Either spaceId or venueId must be provided.',
     type: String,
-    required: false, // не обязательное поле, так как используется ValidateIf
   })
   @IsString()
-  @IsNotEmpty()
-  @ValidateIf((o) => !o.venueId)
+  @IsOptional()
   spaceId?: string;
 
   @ApiProperty({

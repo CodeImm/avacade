@@ -12,9 +12,8 @@ import { RRule, type Options } from 'rrule';
 import { PrismaService } from '../prisma/prisma.service';
 
 import {
+  createRRuleOptions,
   dayjsToDatetime,
-  mapFrequency,
-  mapByWeekday,
 } from '../shared/utils/rrule.utils';
 
 export enum AvailabilityEntityType {
@@ -124,10 +123,6 @@ export class AvailabilitiesService {
       throw new BadRequestException('Invalid date format');
     }
 
-    if (!date) {
-      return this.prisma.availability.delete({ where: { id } });
-    }
-
     const targetDate = this.dayjs.utc(date).startOf('day');
     const hasInterval = this.hasIntervalOnDate(availability, targetDate);
 
@@ -150,8 +145,9 @@ export class AvailabilitiesService {
     availability: Availability,
     targetDate: Dayjs,
   ): boolean {
-    const { interval, recurrence_rule } = availability.rules;
-    const timezone = availability.timezone;
+    const { timezone, rules } = availability;
+    const { interval, recurrence_rule } = rules;
+
     const intervalStart = this.dayjs.tz(interval.valid_from, timezone).utc();
     const intervalEnd = intervalStart.add(interval.duration_minutes, 'minute');
 
@@ -163,34 +159,23 @@ export class AvailabilitiesService {
     }
 
     const localUntil = recurrence_rule.until
-      ? this.dayjs.utc(recurrence_rule.until).tz(timezone)
+      ? this.dayjs.tz(recurrence_rule.until, timezone).endOf('day')
       : null;
 
-    const rruleOptions: Partial<Options> = {
-      freq: mapFrequency(recurrence_rule.frequency),
-      tzid: timezone,
-      dtstart: dayjsToDatetime(intervalStart.tz(timezone)),
-      byweekday: recurrence_rule.byweekday?.map((day) => RRule[day]),
-      until: localUntil ? dayjsToDatetime(localUntil) : null,
-      interval: recurrence_rule.interval,
-      count: recurrence_rule.count,
-      bysetpos: recurrence_rule.bysetpos,
-      bymonthday: recurrence_rule.bymonthday,
-    };
+    const rruleOptions: Partial<Options> = createRRuleOptions(
+      recurrence_rule,
+      timezone,
+      intervalStart.tz(timezone),
+      localUntil,
+    );
 
     const rule = new RRule(rruleOptions);
-    const startLocal = this.dayjs
-      .tz(targetDate, timezone)
-      .startOf('day')
-      .utc()
-      .toDate();
-    const endLocal = this.dayjs
-      .tz(targetDate, timezone)
-      .endOf('day')
-      .utc()
-      .toDate();
-
-    return rule.between(startLocal, endLocal, true).length > 0;
+    const startLocal = this.dayjs.tz(targetDate, timezone).startOf('day');
+    const endLocal = this.dayjs.tz(targetDate, timezone).endOf('day');
+    return (
+      rule.between(dayjsToDatetime(startLocal), dayjsToDatetime(endLocal), true)
+        .length > 0
+    );
   }
 
   private handleRecurringFirstDay(
@@ -483,17 +468,12 @@ export class AvailabilitiesService {
       : null;
 
     // Parse recurrence rule
-    const rruleOptions: Partial<Options> = {
-      freq: mapFrequency(recurrence_rule.frequency),
-      tzid: timezone,
-      dtstart: dayjsToDatetime(localDtstart),
-      byweekday: mapByWeekday(recurrence_rule.byweekday),
-      until: localUntil ? dayjsToDatetime(localUntil) : null,
-      interval: recurrence_rule.interval,
-      count: recurrence_rule.count,
-      bysetpos: recurrence_rule.bysetpos,
-      bymonthday: recurrence_rule.bymonthday,
-    };
+    const rruleOptions: Partial<Options> = createRRuleOptions(
+      recurrence_rule,
+      timezone,
+      localDtstart,
+      localUntil,
+    );
 
     const rule = new RRule(rruleOptions);
 
@@ -627,6 +607,12 @@ export class AvailabilitiesService {
   }
 
   private async resolveTimezone(dto: CreateAvailabilityDto): Promise<string> {
+    if ((dto.venueId && dto.spaceId) || (!dto.venueId && !dto.spaceId)) {
+      throw new BadRequestException(
+        'Exactly one of venueId or spaceId must be provided',
+      );
+    }
+
     if (dto.venueId) {
       const venue = await this.prisma.venue.findUnique({
         where: { id: dto.venueId },
@@ -650,9 +636,7 @@ export class AvailabilitiesService {
       );
     }
 
-    throw new BadRequestException(
-      'Exactly one of venueId or spaceId must be provided',
-    );
+    throw new Error('Unreachable code');
   }
 
   private throwMissingTimezoneError(): never {

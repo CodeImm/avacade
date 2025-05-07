@@ -7,8 +7,8 @@ import {
 import {
   CreateEventDto,
   Interval,
-  UpdateEventDto,
   IntervalDto,
+  UpdateEventDto,
 } from '@repo/api';
 import { Dayjs } from 'dayjs';
 import { Options, RRule } from 'rrule';
@@ -19,9 +19,8 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 
 import {
+  createRRuleOptions,
   dayjsToDatetime,
-  mapFrequency,
-  mapByWeekday,
 } from '../shared/utils/rrule.utils';
 
 @Injectable()
@@ -273,19 +272,19 @@ export class EventsService {
       ];
     }
 
-    const rruleOptions: Partial<Options> = {
-      freq: mapFrequency(recurrence_rule.frequency),
-      tzid: timezone,
-      dtstart: dayjsToDatetime(eventStart.tz(timezone)),
-      byweekday: mapByWeekday(recurrence_rule.byweekday),
-      until: recurrence_rule.until
-        ? dayjsToDatetime(this.dayjs.tz(recurrence_rule.until, timezone))
-        : dayjsToDatetime(periodEnd.tz(timezone)),
-      interval: recurrence_rule.interval || 1,
-      count: recurrence_rule.count,
-      bysetpos: recurrence_rule.bysetpos,
-      bymonthday: recurrence_rule.bymonthday,
-    };
+    const localUntil = recurrence_rule.until
+      ? this.dayjs.tz(recurrence_rule.until, timezone)
+      : periodEnd.tz(timezone);
+
+    const rruleOptions: Partial<Options> = createRRuleOptions(
+      {
+        ...recurrence_rule,
+        dtstart: eventStart.tz(timezone).format('YYYY-MM-DDTHH:mm:ss'),
+      },
+      timezone,
+      eventStart.tz(timezone),
+      localUntil,
+    );
 
     const rule = new RRule(rruleOptions);
     const startLocal = eventStart.tz(timezone).startOf('day');
@@ -326,17 +325,12 @@ export class EventsService {
       ];
     }
 
-    const rruleOptions: Partial<Options> = {
-      freq: mapFrequency(recurrence_rule.frequency),
-      tzid: timezone,
-      dtstart: dayjsToDatetime(startDate.tz(timezone)),
-      byweekday: mapByWeekday(recurrence_rule.byweekday),
-      until: dayjsToDatetime(periodEnd),
-      interval: recurrence_rule.interval,
-      count: recurrence_rule.count,
-      bysetpos: recurrence_rule.bysetpos,
-      bymonthday: recurrence_rule.bymonthday,
-    };
+    const rruleOptions: Partial<Options> = createRRuleOptions(
+      recurrence_rule,
+      timezone,
+      startDate.tz(timezone),
+      periodEnd,
+    );
 
     const rule = new RRule(rruleOptions);
 
