@@ -76,6 +76,55 @@ export class AvailabilitiesService {
     );
   }
 
+  public async getAvailabilityIntervalsForEntity(
+    startDate: string,
+    endDate: string,
+    entity: EntityInput,
+  ): Promise<IntervalDto[]> {
+    const start = this.dayjs.utc(startDate, 'YYYY-MM-DD', true);
+    const end = this.dayjs.utc(endDate, 'YYYY-MM-DD', true);
+
+    if (!start.isValid() || !end.isValid()) {
+      throw new BadRequestException('Invalid date format. Expected YYYY-MM-DD');
+    }
+
+    if (end.isBefore(start)) {
+      throw new BadRequestException(
+        'End date must be the same or after start date',
+      );
+    }
+
+    const { type, id } = entity;
+    if (!Object.values(AvailabilityEntityType).includes(type)) {
+      throw new BadRequestException('Invalid entity type');
+    }
+
+    const whereClause = { [`${type}Id`]: id };
+
+    // FYI: фильтровать availability по until нельзя, потому что интервал может заходить в другой день
+    // нужно проверять с учетом duration
+    const availabilities = await this.prisma.availability.findMany({
+      where: {
+        ...whereClause,
+      },
+    });
+
+    // TODO: фильтрации записей availability с учетом поля valid_from (из структуры rules.interval.valid_from)
+    //  и часового пояса (timezone), чтобы исключить записи,
+    // где valid_from (с учетом часового пояса) позже, чем endDate
+    const intervals: IntervalDto[] = availabilities
+      .map((availability) => {
+        return this.generateAvailabilityIntervals(
+          availability,
+          startDate,
+          endDate,
+        );
+      })
+      .flat();
+
+    return intervals;
+  }
+
   async findAll(): Promise<Availability[]> {
     return this.prisma.availability.findMany();
   }
@@ -110,6 +159,14 @@ export class AvailabilitiesService {
     });
   }
 
+  /**
+   * Removes availability by ID or removes a specific date from recurring availability
+   * @param id Availability identifier
+   * @param date Optional date in YYYY-MM-DD format to remove specific interval
+   * @returns Updated availability or array of availabilities when splitting recurring availability
+   * @throws NotFoundException if availability not found
+   * @throws BadRequestException if date format is invalid or interval doesn't exist
+   */
   async remove(
     id: string,
     date?: string,
@@ -122,30 +179,28 @@ export class AvailabilitiesService {
       throw new NotFoundException(`Availability with ID ${id} not found`);
     }
 
+    // If date is not specified, delete the entire availability
     if (!date) {
       return this.prisma.availability.delete({ where: { id } });
     }
 
-    const parsed = this.dayjs(date, 'YYYY-MM-DD', true); // strict = true
-    if (!parsed.isValid()) {
-      throw new BadRequestException('Invalid date format');
-    }
+    // Validate input date
+    const targetDate = this.validateAndParseDate(date);
 
-    const targetDate = this.dayjs.utc(date).startOf('day');
-    const hasInterval = this.hasIntervalOnDate(availability, targetDate);
-
-    if (!hasInterval) {
+    // Check if interval exists on the specified date
+    if (!this.hasIntervalOnDate(availability, targetDate)) {
       throw new BadRequestException('No interval found for the specified date');
     }
 
+    // Handle deletion within a transaction
     return this.prisma.$transaction(async (tx) => {
-      const { recurrence_rule } = availability.rules;
-
-      if (!recurrence_rule) {
+      // For non-recurring intervals, simply delete the record
+      if (!availability.rules.recurrence_rule) {
         return tx.availability.delete({ where: { id } });
       }
 
-      return this.handleRecurring(tx, availability, targetDate);
+      // For recurring intervals, handle separately
+      return this.handleRecurringRemoval(tx, availability, targetDate);
     });
   }
 
@@ -578,6 +633,28 @@ export class AvailabilitiesService {
     return overlaps;
   }
 
+  /**
+   * Validates and converts string date to Dayjs object in UTC
+   * @param date String date in YYYY-MM-DD format
+   * @returns Dayjs date object in UTC at the start of day
+   * @throws BadRequestException if date format is invalid
+   */
+  private validateAndParseDate(date: string): Dayjs {
+    const parsed = this.dayjs(date, 'YYYY-MM-DD', true); // strict = true
+
+    if (!parsed.isValid()) {
+      throw new BadRequestException('Invalid date format. Expected YYYY-MM-DD');
+    }
+
+    return parsed.utc().startOf('day');
+  }
+
+  /**
+   * Checks if availability interval exists on the specified date
+   * @param availability Availability object
+   * @param targetDate Date to check (Dayjs in UTC)
+   * @returns true if interval exists on the specified date
+   */
   private hasIntervalOnDate(
     availability: Availability,
     targetDate: Dayjs,
@@ -585,9 +662,11 @@ export class AvailabilitiesService {
     const { timezone, rules } = availability;
     const { interval, recurrence_rule } = rules;
 
+    // Get interval start and end times in UTC
     const intervalStart = this.dayjs.tz(interval.valid_from, timezone).utc();
     const intervalEnd = intervalStart.add(interval.duration_minutes, 'minutes');
 
+    // For non-recurring intervals, simply check if date falls within the interval
     if (!recurrence_rule) {
       return (
         intervalStart.isSameOrBefore(targetDate, 'day') &&
@@ -595,6 +674,7 @@ export class AvailabilitiesService {
       );
     }
 
+    // For recurring intervals, use RRule
     const localUntil = recurrence_rule.until
       ? this.dayjs.tz(recurrence_rule.until, timezone).endOf('day')
       : null;
@@ -609,36 +689,74 @@ export class AvailabilitiesService {
     const rule = new RRule(rruleOptions);
     const startLocal = this.dayjs.tz(targetDate, timezone).startOf('day');
     const endLocal = this.dayjs.tz(targetDate, timezone).endOf('day');
+
     return (
       rule.between(dayjsToDatetime(startLocal), dayjsToDatetime(endLocal), true)
         .length > 0
     );
   }
 
-  private handleRecurringFirstDay(
+  /**
+   * Handles removal of interval from recurring availability
+   * @param tx Prisma transaction client
+   * @param availability Availability object
+   * @param targetDate Date to remove (Dayjs in UTC)
+   * @returns Updated availability or array of availabilities
+   */
+  private async handleRecurringRemoval(
     tx: Prisma.TransactionClient,
     availability: Availability,
     targetDate: Dayjs,
-  ) {
+  ): Promise<Availability | Availability[]> {
+    // Check if target date is the first day of the interval
+    const firstDayUpdate = await this.handleRecurringFirstDay(
+      tx,
+      availability,
+      targetDate,
+    );
+
+    if (firstDayUpdate) {
+      return firstDayUpdate;
+    }
+
+    // Handle splitting the recurring interval
+    return this.splitRecurringInterval(tx, availability, targetDate);
+  }
+
+  /**
+   * Handles the case when the date to remove is the first day of the interval
+   * @param tx Prisma transaction client
+   * @param availability Availability object
+   * @param targetDate Date to remove (Dayjs in UTC)
+   * @returns Updated availability or null if not the first day
+   */
+  private async handleRecurringFirstDay(
+    tx: Prisma.TransactionClient,
+    availability: Availability,
+    targetDate: Dayjs,
+  ): Promise<Availability | null> {
     const { interval } = availability.rules;
     const timezone = availability.timezone;
     const intervalStart = this.dayjs
       .tz(interval.valid_from, timezone)
       .startOf('day');
 
+    // If target date matches the first day of the interval
     if (intervalStart.isSame(targetDate, 'day')) {
+      // Shift valid_from to the next day
       const newValidFrom = targetDate
         .add(1, 'day')
         .tz(timezone)
         .startOf('day')
         .format('YYYY-MM-DDTHH:mm:ss');
+
       const updatedRules = {
         ...availability.rules,
         interval: {
           ...interval,
           valid_from: newValidFrom,
+          // TODO: stdate тоже поменять?
         },
-        recurrence_rule: availability.rules.recurrence_rule,
       };
 
       return tx.availability.update({
@@ -650,56 +768,42 @@ export class AvailabilitiesService {
     return null;
   }
 
-  private async handleRecurring(
+  /**
+   * Splits recurring interval into two parts: before and after the specified date
+   * @param tx Prisma transaction client
+   * @param availability Availability object
+   * @param targetDate Split date (Dayjs in UTC)
+   * @returns Array of two availabilities: before and after the specified date
+   */
+  private async splitRecurringInterval(
     tx: Prisma.TransactionClient,
     availability: Availability,
     targetDate: Dayjs,
-  ): Promise<Availability | Availability[]> {
-    const { recurrence_rule } = availability.rules;
+  ): Promise<Availability[]> {
     const timezone = availability.timezone;
-    const localTargetDate = this.dayjs
-      .utc(targetDate)
-      .tz(timezone)
-      .startOf('day');
-    const localUntil = recurrence_rule!.until
-      ? this.dayjs.utc(recurrence_rule!.until).tz(timezone).startOf('day')
-      : null;
     const untilDate = targetDate.subtract(1, 'day').format('YYYY-MM-DD');
 
-    // Check if target date is the first day
-    const firstDayUpdate = await this.handleRecurringFirstDay(
-      tx,
-      availability,
-      targetDate,
-    );
-    if (firstDayUpdate) {
-      return firstDayUpdate;
-    }
-
-    if (localUntil && localUntil.isSameOrBefore(localTargetDate, 'day')) {
-      const current = await tx.availability.findUniqueOrThrow({
-        where: { id: availability.id },
-        select: { rules: true },
-      });
-      current.rules.recurrence_rule.until = untilDate;
-
-      return tx.availability.update({
-        where: { id: availability.id },
-        data: { rules: current.rules },
-      });
-    }
-
+    // Update current availability, setting until to the day before target date
     const current = await tx.availability.findUniqueOrThrow({
       where: { id: availability.id },
       select: { rules: true },
     });
-    current.rules.recurrence_rule.until = untilDate;
+
+    // Copy rules and update end date
+    const updatedRules: Availability['rules'] = {
+      ...current.rules,
+      recurrence_rule: {
+        ...current.rules.recurrence_rule!,
+        until: untilDate,
+      },
+    };
 
     const updatedAvailability = await tx.availability.update({
       where: { id: availability.id },
-      data: { rules: current.rules },
+      data: { rules: updatedRules },
     });
 
+    // Create new availability starting from the day after target date
     const newIntervalStart = targetDate
       .add(1, 'day')
       .tz(timezone)
@@ -709,7 +813,7 @@ export class AvailabilitiesService {
     const newAvailability = await tx.availability.create({
       data: {
         ...availability,
-        id: undefined,
+        id: undefined, // Let Prisma generate a new ID
         rules: {
           ...availability.rules,
           interval: {
@@ -717,8 +821,10 @@ export class AvailabilitiesService {
             valid_from: newIntervalStart,
           },
           recurrence_rule: {
-            ...availability.rules.recurrence_rule,
+            ...availability.rules.recurrence_rule!,
+            // Preserve original until date
             until: availability.rules.recurrence_rule!.until,
+            // TODO: dtstart добавить?
           },
         },
       },
@@ -727,59 +833,11 @@ export class AvailabilitiesService {
     return [updatedAvailability, newAvailability];
   }
 
-  async getAvailabilityIntervalsForEntity(
-    startDate: string,
-    endDate: string,
-    entity: EntityInput,
-  ): Promise<IntervalDto[]> {
-    const start = this.dayjs.utc(startDate, 'YYYY-MM-DD', true);
-    const end = this.dayjs.utc(endDate, 'YYYY-MM-DD', true);
-
-    if (!start.isValid() || !end.isValid()) {
-      throw new BadRequestException('Invalid date format. Expected YYYY-MM-DD');
-    }
-
-    if (end.isBefore(start)) {
-      throw new BadRequestException(
-        'End date must be the same or after start date',
-      );
-    }
-
-    const { type, id } = entity;
-    if (!Object.values(AvailabilityEntityType).includes(type)) {
-      throw new BadRequestException('Invalid entity type');
-    }
-
-    const whereClause = { [`${type}Id`]: id };
-
-    // FYI: фильтровать availability по until нельзя, потому что интервал может заходить в другой день
-    // нужно проверять с учетом duration
-    const availabilities = await this.prisma.availability.findMany({
-      where: {
-        ...whereClause,
-      },
-    });
-
-    // TODO: фильтрации записей availability с учетом поля valid_from (из структуры rules.interval.valid_from)
-    //  и часового пояса (timezone), чтобы исключить записи,
-    // где valid_from (с учетом часового пояса) позже, чем endDate
-    const intervals: IntervalDto[] = availabilities
-      .map((availability) => {
-        return this.generateAvailabilityIntervals(
-          availability,
-          startDate,
-          endDate,
-        );
-      })
-      .flat();
-
-    return intervals;
-  }
-
-  public generateAvailabilityIntervals(
+  private generateAvailabilityIntervals(
     availability:
       | Omit<Availability, 'id' | 'createdAt' | 'updatedAt'>
       | Availability,
+
     startDate: string,
     endDate: string,
   ): IntervalDto[] {
