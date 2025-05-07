@@ -33,9 +33,9 @@ export class IntervalDto implements Interval {
     description: 'UUID of the availability',
     example: '91cef8c7-64fb-4558-968e-fc64733feb9b',
   })
-  @IsNotEmpty()
+  @IsOptional()
   @IsUUID()
-  availability_id!: string;
+  availability_id?: string;
 
   @ApiProperty({
     description: 'UUID of the venue (optional)',

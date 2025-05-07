@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -20,13 +19,15 @@ import {
 import {
   Availability,
   CreateAvailabilityDto,
+  DeleteAvailabilityQueryDto,
   FindIntervalsQueryDto,
-  Interval,
   IntervalDto,
   UpdateAvailabilityDto,
-  DeleteAvailabilityQueryDto,
 } from '@repo/api';
-import { AvailabilitiesService } from './availabilities.service';
+import {
+  AvailabilitiesService,
+  AvailabilityEntityType,
+} from './availabilities.service';
 
 @ApiTags('availabilities')
 @Controller('availabilities')
@@ -62,45 +63,48 @@ export class AvailabilitiesController {
     description: 'List of availability intervals for the specified date range',
   })
   @ApiBadRequestResponse({
-    description:
-      'Missing startDate/endDate or neither venueId nor spaceId provided',
+    description: 'Invalid date format or invalid entity parameters',
   })
   @ApiQuery({
     name: 'startDate',
     required: true,
     description: 'Start date in YYYY-MM-DD format',
+    example: '2025-05-07',
   })
   @ApiQuery({
     name: 'endDate',
     required: true,
     description: 'End date in YYYY-MM-DD format',
+    example: '2025-05-10',
   })
   @ApiQuery({
-    name: 'venueId',
-    required: false,
-    description: 'UUID of the venue (optional if spaceId provided)',
+    name: 'entityType',
+    required: true,
+    description: 'Type of entity (venue, space, or user)',
+    enum: AvailabilityEntityType,
   })
   @ApiQuery({
-    name: 'spaceId',
-    required: false,
-    description: 'UUID of the space (optional if venueId provided)',
+    name: 'entityId',
+    required: true,
+    description: 'UUID of the entity',
+    example: '123e4567-e89b-12d3-a456-426614174000',
   })
   async findIntervals(
     @Query() query: FindIntervalsQueryDto,
-  ): Promise<Interval[]> {
-    const { startDate, endDate, venueId, spaceId } = query;
+  ): Promise<IntervalDto[]> {
+    const { startDate, endDate, entityType, entityId } = query;
 
-    if (!venueId && !spaceId) {
-      throw new BadRequestException(
-        'Either venueId or spaceId must be provided',
-      );
-    }
+    const entity = {
+      type: AvailabilityEntityType[
+        entityType.toUpperCase()
+      ] as AvailabilityEntityType,
+      id: entityId,
+    };
 
-    return this.availabilitiesService.findIntervalsByDateRange(
+    return this.availabilitiesService.getAvailabilityIntervalsForEntity(
       startDate,
       endDate,
-      venueId,
-      spaceId,
+      entity,
     );
   }
 

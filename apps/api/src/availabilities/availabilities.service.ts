@@ -5,11 +5,28 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 
-import { Availability, CreateAvailabilityDto, Interval } from '@repo/api';
-import { Dayjs } from 'dayjs';
-import { datetime, RRule, type Options } from 'rrule';
-import { PrismaService } from '../prisma/prisma.service';
+import { Availability, CreateAvailabilityDto, IntervalDto } from '@repo/api';
 import { Prisma } from '@repo/db';
+import { Dayjs } from 'dayjs';
+import { RRule, type Options } from 'rrule';
+import { PrismaService } from '../prisma/prisma.service';
+
+import {
+  dayjsToDatetime,
+  mapFrequency,
+  mapByWeekday,
+} from '../shared/utils/rrule.utils';
+
+export enum AvailabilityEntityType {
+  VENUE = 'venue',
+  SPACE = 'space',
+  USER = 'user',
+}
+
+interface EntityInput {
+  type: AvailabilityEntityType;
+  id: string;
+}
 
 interface TimeIntervalGroup {
   start_time: string;
@@ -20,8 +37,8 @@ interface TimeIntervalGroup {
 }
 
 interface OverlappingInterval {
-  interval1: Interval;
-  interval2: Interval;
+  interval1: IntervalDto;
+  interval2: IntervalDto;
   overlap_start: string;
   overlap_end: string;
 }
@@ -150,11 +167,11 @@ export class AvailabilitiesService {
       : null;
 
     const rruleOptions: Partial<Options> = {
-      freq: this.mapFrequency(recurrence_rule.frequency),
+      freq: mapFrequency(recurrence_rule.frequency),
       tzid: timezone,
-      dtstart: this.dayjsToDatetime(intervalStart.tz(timezone)),
+      dtstart: dayjsToDatetime(intervalStart.tz(timezone)),
       byweekday: recurrence_rule.byweekday?.map((day) => RRule[day]),
-      until: localUntil ? this.dayjsToDatetime(localUntil) : null,
+      until: localUntil ? dayjsToDatetime(localUntil) : null,
       interval: recurrence_rule.interval,
       count: recurrence_rule.count,
       bysetpos: recurrence_rule.bysetpos,
@@ -368,42 +385,43 @@ export class AvailabilitiesService {
     return Object.values(grouped);
   }
 
-  async findIntervalsByDateRange(
+  async getAvailabilityIntervalsForEntity(
     startDate: string,
     endDate: string,
-    venueId?: string,
-    spaceId?: string,
-  ): Promise<Interval[]> {
-    if (!this.dayjs(startDate).isValid() || !this.dayjs(endDate).isValid()) {
-      throw new BadRequestException('Invalid date format');
-    }
+    entity: EntityInput,
+  ): Promise<IntervalDto[]> {
+    const start = this.dayjs.utc(startDate, 'YYYY-MM-DD', true);
+    const end = this.dayjs.utc(endDate, 'YYYY-MM-DD', true);
 
-    const entityIds = [venueId, spaceId].filter(Boolean);
-    if (entityIds.length !== 1) {
-      throw new BadRequestException(
-        'Exactly one of venueId or spaceId must be provided',
-      );
+    if (!start.isValid() || !end.isValid()) {
+      throw new BadRequestException('Invalid date format. Expected YYYY-MM-DD');
     }
-    // TODO: интерпретировать время как 00:00 в часовом поясе user'a и переводить в utc
-    const start = this.dayjs.utc(startDate).startOf('day');
-    const end = this.dayjs.utc(endDate).add(1, 'day').startOf('day');
 
     if (end.isBefore(start)) {
-      throw new BadRequestException('End date must be after start date');
+      throw new BadRequestException(
+        'End date must be the same or after start date',
+      );
     }
 
-    const whereClause = venueId ? { venueId } : { spaceId };
+    const { type, id } = entity;
+    if (!Object.values(AvailabilityEntityType).includes(type)) {
+      throw new BadRequestException('Invalid entity type');
+    }
 
+    const whereClause = { [`${type}Id`]: id };
+
+    // FYI: фильтровать availability по until нельзя, потому что интервал может заходить в другой день
+    // нужно проверять с учетом duration
     const availabilities = await this.prisma.availability.findMany({
       where: {
         ...whereClause,
       },
     });
 
-    // TODO: фильтровать availability по until нельза потому что интервал может заходить в другой день
-    // нужно проверять с учетом duration
-
-    const intervals: Interval[] = availabilities
+    // TODO: фильтрации записей availability с учетом поля valid_from (из структуры rules.interval.valid_from)
+    //  и часового пояса (timezone), чтобы исключить записи,
+    // где valid_from (с учетом часового пояса) позже, чем endDate
+    const intervals: IntervalDto[] = availabilities
       .map((availability) => {
         return this.generateAvailabilityIntervals(
           availability,
@@ -413,11 +431,7 @@ export class AvailabilitiesService {
       })
       .flat();
 
-    const sortedIntervals = intervals.sort((a, b) =>
-      this.dayjs(a.start_date).diff(this.dayjs(b.start_date)),
-    );
-
-    return sortedIntervals;
+    return intervals;
   }
 
   public generateAvailabilityIntervals(
@@ -426,8 +440,8 @@ export class AvailabilitiesService {
       | Availability,
     startDate: string,
     endDate: string,
-  ): Interval[] {
-    const intervals: Interval[] = [];
+  ): IntervalDto[] {
+    const intervals: IntervalDto[] = [];
 
     const { rules, venueId, spaceId, timezone } = availability;
     const { interval } = rules;
@@ -443,7 +457,7 @@ export class AvailabilitiesService {
         intervals.push({
           start_date: intervalStart.toISOString(),
           end_date: intervalEnd.toISOString(),
-          availability_id: 'id' in availability ? availability.id : null,
+          availability_id: 'id' in availability ? availability.id : undefined,
           venueId,
           spaceId,
         });
@@ -455,40 +469,26 @@ export class AvailabilitiesService {
     const { recurrence_rule } = rules;
 
     const dtstart = intervalStart;
-    const until = recurrence_rule.until
-      ? this.dayjs.utc(recurrence_rule.until)
-      : null;
 
     // Check if rule's date range overlaps with requested range
     // until && until.isBefore(start); - нельзя  потому что интервал может заходить в другой день
+    // TODO: учитывать until и duration для фильтрации
     if (dtstart.isAfter(end)) {
       return [];
     }
 
-    const localDtstart = intervalStart.tz(timezone);
-    // TODO: until - хранить в локльном времени?
+    const localDtstart = dtstart.tz(timezone);
     const localUntil = recurrence_rule.until
-      ? this.dayjs.utc(recurrence_rule.until).tz(timezone)
+      ? this.dayjs.tz(recurrence_rule.until, timezone).endOf('day')
       : null;
 
     // Parse recurrence rule
     const rruleOptions: Partial<Options> = {
-      freq: this.mapFrequency(recurrence_rule.frequency),
+      freq: mapFrequency(recurrence_rule.frequency),
       tzid: timezone,
-      dtstart: this.dayjsToDatetime(localDtstart),
-      byweekday: recurrence_rule.byweekday?.map(
-        (day) =>
-          ({
-            MO: RRule.MO,
-            TU: RRule.TU,
-            WE: RRule.WE,
-            TH: RRule.TH,
-            FR: RRule.FR,
-            SA: RRule.SA,
-            SU: RRule.SU,
-          })[day],
-      ),
-      until: localUntil ? this.dayjsToDatetime(localUntil) : null,
+      dtstart: dayjsToDatetime(localDtstart),
+      byweekday: mapByWeekday(recurrence_rule.byweekday),
+      until: localUntil ? dayjsToDatetime(localUntil) : null,
       interval: recurrence_rule.interval,
       count: recurrence_rule.count,
       bysetpos: recurrence_rule.bysetpos,
@@ -497,22 +497,24 @@ export class AvailabilitiesService {
 
     const rule = new RRule(rruleOptions);
 
-    //TODO: должна быть таймзона запрошивающего пользователя (см. коммент выше)
-    const startLocal = this.dayjs
-      .tz(startDate, timezone)
-      .startOf('day')
-      .utc()
-      .toDate();
-    const endLocal = this.dayjs
-      .tz(endDate, timezone)
-      .endOf('day')
-      .utc()
-      .toDate();
-    const dates = rule.between(startLocal, endLocal, true).map((date) => {
-      // Преобразуем в строку в ISO формате (без format), чтобы сохранить точность
-      const local = this.dayjs.tz(date.toISOString(), timezone);
-      return local.utc().toDate();
-    });
+    //TODO: должна быть таймзона запрашивающего пользователя (см. коммент выше)
+    const startLocal = this.dayjs.tz(startDate, timezone).startOf('day');
+    const requestedEndLocal = this.dayjs.tz(endDate, timezone).endOf('day');
+
+    const effectiveEnd =
+      localUntil && localUntil.isBefore(requestedEndLocal)
+        ? localUntil
+        : requestedEndLocal;
+
+    // TODO: не учитывается duration, не все даты могут попасть
+    // TODO: протестировать
+    const dates = rule
+      .between(dayjsToDatetime(startLocal), dayjsToDatetime(effectiveEnd), true)
+      .map((date) => {
+        // Преобразуем в строку в ISO формате (без format), чтобы сохранить точность
+        const local = this.dayjs.tz(date.toISOString(), timezone);
+        return local.utc().toDate();
+      });
 
     // Generate intervals for each recurring date
     dates.forEach((date) => {
@@ -522,24 +524,13 @@ export class AvailabilitiesService {
       intervals.push({
         start_date: startDate.toISOString(),
         end_date: endDate.toISOString(),
-        availability_id: 'id' in availability ? availability.id : null,
+        availability_id: 'id' in availability ? availability.id : undefined,
         venueId,
         spaceId,
       });
     });
 
     return intervals;
-  }
-
-  private dayjsToDatetime(d: Dayjs) {
-    return datetime(
-      d.year(),
-      d.month() + 1, // month is 1-based in rrule
-      d.date(),
-      d.hour(),
-      d.minute(),
-      d.second(),
-    );
   }
 
   private async validateAvailabilityIntersections(
@@ -583,7 +574,7 @@ export class AvailabilitiesService {
     ]);
   }
 
-  private findOverlappingIntervals(intervals: Interval[]) {
+  private findOverlappingIntervals(intervals: IntervalDto[]) {
     const sortedIntervals = intervals.sort((a, b) =>
       this.dayjs(a.start_date).diff(this.dayjs(b.start_date)),
     );
@@ -622,19 +613,6 @@ export class AvailabilitiesService {
     }
 
     return overlaps;
-  }
-
-  private mapFrequency(frequency: string) {
-    switch (frequency) {
-      case 'DAILY':
-        return RRule.DAILY;
-      case 'WEEKLY':
-        return RRule.WEEKLY;
-      case 'MONTHLY':
-        return RRule.MONTHLY;
-      default:
-        throw new BadRequestException('Invalid recurrence frequency');
-    }
   }
 
   private ensureExactlyOneEntityProvided(dto: CreateAvailabilityDto): void {
