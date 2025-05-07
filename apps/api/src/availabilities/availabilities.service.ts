@@ -49,18 +49,26 @@ export class AvailabilitiesService {
     @Inject('DAYJS') private readonly dayjs: typeof import('dayjs'),
   ) {}
 
-  async create(
-    createAvailabilityDto: CreateAvailabilityDto,
-  ): Promise<Availability[]> {
-    this.ensureExactlyOneEntityProvided(createAvailabilityDto);
+  /**
+   * Creates one or more availability records based on input data
+   * Groups similar time intervals and validates against overlaps
+   *
+   * @param dto Data transfer object containing availability details
+   * @returns Array of created availability records
+   * @throws BadRequestException when validation fails
+   * @throws NotFoundException when referenced entities don't exist
+   */
+  async create(dto: CreateAvailabilityDto): Promise<Availability[]> {
+    // Input validation
+    this.validateEntityReference(dto);
 
-    const timezone = await this.resolveTimezone(createAvailabilityDto);
-    createAvailabilityDto.timezone = timezone;
+    // Resolve timezone and augment the DTO
+    dto.timezone = await this.resolveEntityTimezone(dto);
 
-    const availabilities = await this.generateValidatedAvailabilities(
-      createAvailabilityDto,
-    );
+    // Process intervals and prepare availability records
+    const availabilities = await this.prepareAvailabilityRecords(dto);
 
+    // Create all records in a transaction for atomicity
     return this.prisma.$transaction(
       availabilities.map((availability) =>
         this.prisma.availability.create({ data: availability }),
@@ -141,6 +149,435 @@ export class AvailabilitiesService {
     });
   }
 
+  // =============== PRIVATE METHODS ===============
+
+  /**
+   * Validates that exactly one entity reference is provided
+   */
+  private validateEntityReference(dto: CreateAvailabilityDto): void {
+    const providedEntityCount = [dto.venueId, dto.spaceId].filter(
+      Boolean,
+    ).length;
+
+    if (providedEntityCount !== 1) {
+      throw new BadRequestException(
+        'Exactly one of venueId or spaceId must be provided',
+      );
+    }
+  }
+
+  /**
+   * Resolves the correct timezone based on the referenced entity
+   */
+  private async resolveEntityTimezone(
+    dto: CreateAvailabilityDto,
+  ): Promise<string> {
+    // If timezone is explicitly provided, use it
+    if (dto.timezone) {
+      return dto.timezone;
+    }
+
+    // Otherwise resolve from entity
+    if (dto.venueId) {
+      return this.resolveTimezoneFromVenue(dto.venueId);
+    } else if (dto.spaceId) {
+      return this.resolveTimezoneFromSpace(dto.spaceId);
+    }
+
+    // This should not happen due to prior validation
+    throw new Error('No entity reference found');
+  }
+
+  /**
+   * Gets timezone from a venue entity
+   */
+  private async resolveTimezoneFromVenue(venueId: string): Promise<string> {
+    const venue = await this.prisma.venue.findUnique({
+      where: { id: venueId },
+      select: { timezone: true },
+    });
+
+    if (!venue) {
+      throw new NotFoundException(`Venue with ID ${venueId} not found`);
+    }
+
+    if (!venue.timezone) {
+      throw new BadRequestException(
+        'Venue has no timezone set. Please provide timezone in the request',
+      );
+    }
+
+    return venue.timezone;
+  }
+
+  /**
+   * Gets timezone from a space entity or its parent venue
+   */
+  private async resolveTimezoneFromSpace(spaceId: string): Promise<string> {
+    const space = await this.prisma.space.findUnique({
+      where: { id: spaceId },
+      select: { venue: { select: { timezone: true } } },
+    });
+
+    if (!space) {
+      throw new NotFoundException(`Space with ID ${spaceId} not found`);
+    }
+
+    if (!space.venue?.timezone) {
+      throw new BadRequestException(
+        'Parent venue has no timezone set. Please provide timezone in the request',
+      );
+    }
+
+    return space.venue.timezone;
+  }
+
+  /**
+   * Prepares availability records from input DTO by grouping intervals
+   * and validating against existing availabilities
+   */
+  private async prepareAvailabilityRecords(
+    dto: CreateAvailabilityDto,
+  ): Promise<Omit<Availability, 'id' | 'createdAt' | 'updatedAt'>[]> {
+    // Group intervals by time pattern
+    const intervalGroups = this.groupIntervalsByPattern(
+      dto.rules.intervals,
+      dto.timezone,
+    );
+
+    // Create availability objects for each group
+    const availabilityRecords = intervalGroups.map((group) =>
+      this.createAvailabilityObject(dto, group),
+    );
+
+    // Validate records don't create overlaps
+    await this.validateNoOverlappingIntervals(availabilityRecords);
+
+    return availabilityRecords;
+  }
+
+  /**
+   * Groups intervals by their common time pattern (start time, end time, duration)
+   * to reduce the number of availability records needed
+   */
+  private groupIntervalsByPattern(
+    intervals: IntervalDto[],
+    timezone: string,
+  ): TimeIntervalGroup[] {
+    const groupMap = new Map<string, TimeIntervalGroup>();
+
+    for (const interval of intervals) {
+      const { pattern, startTime, endTime, duration, localStartDate } =
+        this.extractIntervalPattern(interval, timezone);
+
+      if (!groupMap.has(pattern)) {
+        groupMap.set(pattern, {
+          start_time: startTime,
+          end_time: endTime,
+          duration_minutes: duration,
+          intervals: [],
+          valid_from: localStartDate,
+        });
+      }
+
+      const group = groupMap.get(pattern)!;
+      group.intervals.push(interval);
+
+      // Update valid_from to earliest date in group
+      const currentValidFromDate = this.dayjs.tz(group.valid_from, timezone);
+      const intervalStartDate = this.dayjs.tz(localStartDate, timezone);
+
+      if (intervalStartDate.isBefore(currentValidFromDate)) {
+        group.valid_from = localStartDate;
+      }
+    }
+
+    return Array.from(groupMap.values());
+  }
+
+  /**
+   * Extracts pattern information from an interval
+   */
+  private extractIntervalPattern(
+    interval: IntervalDto,
+    timezone: string,
+  ): {
+    pattern: string;
+    startTime: string;
+    endTime: string;
+    duration: number;
+    localStartDate: string;
+  } {
+    // Convert dates to timezone-aware objects
+    const start = this.dayjs
+      .utc(interval.start_date)
+      .tz(timezone)
+      .startOf('minute');
+    const end = this.dayjs
+      .utc(interval.end_date)
+      .tz(timezone)
+      .startOf('minute');
+
+    // Extract time components
+    const startTime = start.format('HH:mm');
+    const endTime = end.format('HH:mm');
+    const duration = end.diff(start, 'minute');
+
+    // Create pattern key and formatted date
+    const pattern = `${startTime}_${endTime}_${duration}`;
+    const localStartDate = start.format('YYYY-MM-DDTHH:mm:ss');
+
+    return { pattern, startTime, endTime, duration, localStartDate };
+  }
+
+  /**
+   * Creates an availability object from DTO and interval group
+   */
+  private createAvailabilityObject(
+    dto: CreateAvailabilityDto,
+    group: TimeIntervalGroup,
+  ): Omit<Availability, 'id' | 'createdAt' | 'updatedAt'> {
+    return {
+      ...dto,
+      spaceId: dto.spaceId ?? null,
+      venueId: dto.venueId ?? null,
+      rules: {
+        interval: {
+          start_time: group.start_time,
+          end_time: group.end_time,
+          duration_minutes: group.duration_minutes,
+          valid_from: group.valid_from,
+        },
+        // Add recurrence rule if present
+        ...(dto.rules.recurrence_rule && {
+          recurrence_rule: {
+            ...dto.rules.recurrence_rule,
+            // TODO: dtstart?
+            dtstart: group.valid_from,
+          },
+        }),
+      },
+    };
+  }
+
+  /**
+   * Validates that no availability records would create overlaps
+   */
+  private async validateNoOverlappingIntervals(
+    availabilities: Omit<Availability, 'id' | 'createdAt' | 'updatedAt'>[],
+  ): Promise<void> {
+    // Check each availability in parallel
+    await Promise.all(
+      availabilities.map((availability) =>
+        this.validateSingleAvailability(availability),
+      ),
+    );
+  }
+
+  /**
+   * Validates a single availability against existing records
+   */
+  private async validateSingleAvailability(
+    newAvailability: Omit<Availability, 'id' | 'createdAt' | 'updatedAt'>,
+  ): Promise<void> {
+    const overlaps = await this.findOverlappingIntervals(newAvailability);
+
+    if (overlaps.length > 0) {
+      throw new BadRequestException({
+        message: 'Availability intervals overlap with existing records',
+        overlaps,
+      });
+    }
+  }
+
+  /**
+   * Finds overlapping intervals between new availability and existing ones
+   */
+  private async findOverlappingIntervals(
+    newAvailability: Omit<Availability, 'id' | 'createdAt' | 'updatedAt'>,
+  ): Promise<OverlappingInterval[]> {
+    // Determine which entity we're working with
+    const { venueId, spaceId } = newAvailability;
+    const entityFilter = venueId ? { venueId } : { spaceId };
+
+    // Find all existing availabilities for this entity
+    const existingAvailabilities = await this.prisma.availability.findMany({
+      where: entityFilter,
+    });
+
+    // Calculate reasonable time window for overlap checking
+    const startReference = this.dayjs
+      .tz(newAvailability.rules.interval.valid_from, newAvailability.timezone)
+      .utc();
+
+    const endReference = startReference.add(12, 'month');
+
+    // Generate concrete intervals for the time window
+    const allIntervals = [
+      // Intervals from new availability
+      ...this.generateTimeIntervals(
+        newAvailability,
+        startReference.toISOString(),
+        endReference.toISOString(),
+      ),
+      // Intervals from existing availabilities
+      ...existingAvailabilities.flatMap((availability) =>
+        this.generateTimeIntervals(
+          availability,
+          startReference.toISOString(),
+          endReference.toISOString(),
+        ),
+      ),
+    ];
+
+    // Detect and return overlaps
+    return this.detectOverlappingIntervals(allIntervals);
+  }
+
+  /**
+   * Generates concrete time intervals from an availability record
+   */
+  private generateTimeIntervals(
+    availability:
+      | Omit<Availability, 'id' | 'createdAt' | 'updatedAt'>
+      | Availability,
+    startDate: string,
+    endDate: string,
+  ): IntervalDto[] {
+    const { rules, venueId, spaceId, timezone } = availability;
+    const { interval, recurrence_rule } = rules;
+
+    // Calculate base interval bounds
+    const intervalStart = this.dayjs.tz(interval.valid_from, timezone).utc();
+    const intervalEnd = intervalStart.add(interval.duration_minutes, 'minutes');
+
+    // Convert date bounds for comparison
+    const searchStart = this.dayjs.utc(startDate).startOf('day');
+    const searchEnd = this.dayjs.utc(endDate).add(1, 'day').startOf('day');
+
+    // Handle non-recurring intervals
+    if (!recurrence_rule) {
+      if (
+        intervalStart.isBefore(searchEnd) &&
+        intervalEnd.isAfter(searchStart)
+      ) {
+        return [
+          {
+            start_date: intervalStart.toISOString(),
+            end_date: intervalEnd.toISOString(),
+            availability_id: 'id' in availability ? availability.id : undefined,
+            venueId,
+            spaceId,
+          },
+        ];
+      }
+      return [];
+    }
+
+    // Handle recurring intervals
+    // Check if rule's date range overlaps with requested range
+    // until && until.isBefore(start); - нельзя  потому что интервал может заходить в другой день
+    // TODO: учитывать until и duration для фильтрации
+    if (intervalStart.isAfter(searchEnd)) {
+      return [];
+    }
+
+    // Prepare RRule options
+    const localStart = intervalStart.tz(timezone);
+    const localUntil = recurrence_rule.until
+      ? this.dayjs.tz(recurrence_rule.until, timezone).endOf('day')
+      : null;
+
+    const rruleOptions = createRRuleOptions(
+      recurrence_rule,
+      timezone,
+      localStart,
+      localUntil,
+    );
+
+    const rule = new RRule(rruleOptions);
+
+    // Calculate effective search range
+    //TODO: должна быть таймзона запрашивающего пользователя (см. коммент выше)
+    const localSearchStart = this.dayjs.tz(startDate, timezone).startOf('day');
+    const localSearchEnd = this.dayjs.tz(endDate, timezone).endOf('day');
+
+    const effectiveEndDate =
+      localUntil && localUntil.isBefore(localSearchEnd)
+        ? localUntil
+        : localSearchEnd;
+
+    // Find all occurrence dates in range
+    // TODO: не учитывается duration, не все даты могут попасть
+    // TODO: протестировать
+    const occurrenceDates = rule
+      .between(
+        dayjsToDatetime(localSearchStart),
+        dayjsToDatetime(effectiveEndDate),
+        true,
+      )
+      .map((date) => this.dayjs.tz(date.toISOString(), timezone).utc());
+
+    // Generate intervals for each occurrence
+    return occurrenceDates.map((startDate) => {
+      const endDate = startDate.add(interval.duration_minutes, 'minutes');
+
+      return {
+        start_date: startDate.toISOString(),
+        end_date: endDate.toISOString(),
+        availability_id: 'id' in availability ? availability.id : undefined,
+        venueId,
+        spaceId,
+      };
+    });
+  }
+
+  /**
+   * Detects overlapping intervals in a list of intervals
+   */
+  private detectOverlappingIntervals(
+    intervals: IntervalDto[],
+  ): OverlappingInterval[] {
+    // Sort intervals by start time for efficient overlap detection
+    const sortedIntervals = [...intervals].sort((a, b) =>
+      this.dayjs(a.start_date).diff(this.dayjs(b.start_date)),
+    );
+
+    const overlaps: OverlappingInterval[] = [];
+
+    // Use sweep line algorithm to detect overlaps
+    for (let i = 0; i < sortedIntervals.length; i++) {
+      const current = sortedIntervals[i]!;
+      const currentEnd = this.dayjs.utc(current.end_date);
+
+      // Check all subsequent intervals that might overlap
+      for (let j = i + 1; j < sortedIntervals.length; j++) {
+        const next = sortedIntervals[j]!;
+        const nextStart = this.dayjs.utc(next.start_date);
+
+        // If we've passed potential overlap, we can break early
+        if (currentEnd.isBefore(nextStart)) {
+          break;
+        }
+
+        // We found an overlap
+        if (currentEnd.isAfter(nextStart)) {
+          const nextEnd = this.dayjs.utc(next.end_date);
+          const overlapEnd = this.dayjs.min(currentEnd, nextEnd);
+
+          overlaps.push({
+            interval1: current,
+            interval2: next,
+            overlap_start: nextStart.toISOString(),
+            overlap_end: overlapEnd.toISOString(),
+          });
+        }
+      }
+    }
+
+    return overlaps;
+  }
+
   private hasIntervalOnDate(
     availability: Availability,
     targetDate: Dayjs,
@@ -149,7 +586,7 @@ export class AvailabilitiesService {
     const { interval, recurrence_rule } = rules;
 
     const intervalStart = this.dayjs.tz(interval.valid_from, timezone).utc();
-    const intervalEnd = intervalStart.add(interval.duration_minutes, 'minute');
+    const intervalEnd = intervalStart.add(interval.duration_minutes, 'minutes');
 
     if (!recurrence_rule) {
       return (
@@ -290,86 +727,6 @@ export class AvailabilitiesService {
     return [updatedAvailability, newAvailability];
   }
 
-  private buildAvailabilityData(
-    createAvailabilityDto: CreateAvailabilityDto,
-    group: TimeIntervalGroup,
-  ): Omit<Availability, 'id' | 'createdAt' | 'updatedAt'> {
-    return {
-      ...createAvailabilityDto,
-      spaceId: createAvailabilityDto.spaceId ?? null,
-      venueId: createAvailabilityDto.venueId ?? null,
-      rules: {
-        interval: {
-          start_time: group.start_time,
-          end_time: group.end_time,
-          duration_minutes: group.duration_minutes,
-          valid_from: group.valid_from,
-        },
-        ...(createAvailabilityDto.rules.recurrence_rule && {
-          recurrence_rule: {
-            ...createAvailabilityDto.rules.recurrence_rule,
-            // TODO: dtstart?
-            dtstart: group.valid_from,
-            byweekday: createAvailabilityDto.rules.recurrence_rule.byweekday,
-          },
-        }),
-      },
-    };
-  }
-
-  // Шаг 1: Группировка по start_time, end_time и duration
-  private groupIntervals(
-    intervals: CreateAvailabilityDto['rules']['intervals'],
-    timezone: string,
-  ): TimeIntervalGroup[] {
-    const grouped: { [key: string]: TimeIntervalGroup } = {};
-
-    for (const interval of intervals) {
-      // Преобразуем даты в локальное время указанного timezone
-      const start = this.dayjs
-        .utc(interval.start_date)
-        .tz(timezone)
-        .startOf('minute');
-      const end = this.dayjs
-        .utc(interval.end_date)
-        .tz(timezone)
-        .startOf('minute');
-
-      // Извлекаем время в формате HH:mm в локальном timezone
-      const startTime = start.format('HH:mm');
-      const endTime = end.format('HH:mm');
-
-      // Вычисляем продолжительность в минутах
-      const duration = end.diff(start, 'minute');
-
-      // Ключ для группировки: startTime_endTime_duration
-      const key = `${startTime}_${endTime}_${duration}`;
-
-      if (!grouped[key]) {
-        grouped[key] = {
-          start_time: startTime,
-          end_time: endTime,
-          duration_minutes: duration,
-          intervals: [],
-          valid_from: start.format('YYYY-MM-DDTHH:mm:ss'), // Локальная полная дата
-        };
-      }
-
-      grouped[key].intervals.push(interval);
-
-      // Обновляем valid_from, если текущая дата раньше
-      const currentValidFrom = this.dayjs
-        .tz(grouped[key].valid_from, timezone)
-        .format('YYYY-MM-DDTHH:mm:ss');
-      if (start.isBefore(currentValidFrom)) {
-        grouped[key].valid_from = start.format('YYYY-MM-DDTHH:mm:ss');
-      }
-    }
-
-    // Преобразуем объект в массив
-    return Object.values(grouped);
-  }
-
   async getAvailabilityIntervalsForEntity(
     startDate: string,
     endDate: string,
@@ -435,7 +792,7 @@ export class AvailabilitiesService {
     const end = this.dayjs.utc(endDate).add(1, 'day').startOf('day');
 
     const intervalStart = this.dayjs.tz(interval.valid_from, timezone).utc();
-    const intervalEnd = intervalStart.add(interval.duration_minutes, 'minute');
+    const intervalEnd = intervalStart.add(interval.duration_minutes, 'minutes');
 
     if (!rules.recurrence_rule) {
       if (intervalStart.isBefore(end) && intervalEnd.isAfter(start)) {
@@ -511,169 +868,5 @@ export class AvailabilitiesService {
     });
 
     return intervals;
-  }
-
-  private async validateAvailabilityIntersections(
-    // TODO: передавать все availabilities
-    newAvailability: Omit<Availability, 'id' | 'createdAt' | 'updatedAt'>,
-  ): Promise<OverlappingInterval[]> {
-    const { venueId, spaceId } = newAvailability;
-    const whereClause = venueId ? { venueId } : { spaceId };
-
-    const availabilities = await this.prisma.availability.findMany({
-      where: {
-        ...whereClause,
-      },
-    });
-
-    const startDate = this.dayjs
-      .tz(newAvailability.rules.interval.valid_from, newAvailability.timezone)
-      .utc();
-
-    const endDate = startDate.add(12, 'month');
-
-    const newAvailabilityIntervals = this.generateAvailabilityIntervals(
-      newAvailability,
-      startDate.toISOString(),
-      endDate.toISOString(),
-    );
-
-    const dbAvailabilityIntervals = availabilities
-      .map((a) =>
-        this.generateAvailabilityIntervals(
-          a,
-          startDate.toISOString(),
-          endDate.toISOString(),
-        ),
-      )
-      .flat();
-
-    return this.findOverlappingIntervals([
-      ...newAvailabilityIntervals,
-      ...dbAvailabilityIntervals,
-    ]);
-  }
-
-  private findOverlappingIntervals(intervals: IntervalDto[]) {
-    const sortedIntervals = intervals.sort((a, b) =>
-      this.dayjs(a.start_date).diff(this.dayjs(b.start_date)),
-    );
-
-    const overlaps: OverlappingInterval[] = [];
-
-    // Проходим по каждому интервалу
-    for (let i = 0; i < sortedIntervals.length; i++) {
-      const current = sortedIntervals[i]!;
-      const currentEnd = this.dayjs.utc(current.end_date);
-
-      // Проверяем все последующие интервалы
-      for (let j = i + 1; j < sortedIntervals.length; j++) {
-        const next = sortedIntervals[j]!;
-        const nextStart = this.dayjs.utc(next.start_date);
-        const nextEnd = this.dayjs.utc(next.end_date);
-
-        // Если end_date текущего меньше start_date следующего, дальнейшие проверки не нужны
-        if (currentEnd.isBefore(nextStart)) {
-          break;
-        }
-
-        // Проверяем пересечение
-        if (currentEnd.isSameOrAfter(nextStart)) {
-          const overlapStart = nextStart;
-          const overlapEnd = this.dayjs.min(currentEnd, nextEnd);
-
-          overlaps.push({
-            interval1: current,
-            interval2: next,
-            overlap_start: overlapStart.toISOString(),
-            overlap_end: overlapEnd.toISOString(),
-          });
-        }
-      }
-    }
-
-    return overlaps;
-  }
-
-  private ensureExactlyOneEntityProvided(dto: CreateAvailabilityDto): void {
-    const hasVenueId = Boolean(dto.venueId);
-    const hasSpaceId = Boolean(dto.spaceId);
-
-    if (hasVenueId === hasSpaceId) {
-      throw new BadRequestException(
-        'Exactly one of venueId or spaceId must be provided',
-      );
-    }
-  }
-
-  private async resolveTimezone(dto: CreateAvailabilityDto): Promise<string> {
-    if ((dto.venueId && dto.spaceId) || (!dto.venueId && !dto.spaceId)) {
-      throw new BadRequestException(
-        'Exactly one of venueId or spaceId must be provided',
-      );
-    }
-
-    if (dto.venueId) {
-      const venue = await this.prisma.venue.findUnique({
-        where: { id: dto.venueId },
-      });
-      if (!venue)
-        throw new NotFoundException(`Venue with ID ${dto.venueId} not found`);
-      return dto.timezone || venue.timezone || this.throwMissingTimezoneError();
-    }
-
-    if (dto.spaceId) {
-      const space = await this.prisma.space.findUnique({
-        where: { id: dto.spaceId },
-        include: { venue: true },
-      });
-      if (!space)
-        throw new NotFoundException(`Space with ID ${dto.spaceId} not found`);
-      return (
-        dto.timezone ||
-        space.venue?.timezone ||
-        this.throwMissingTimezoneError()
-      );
-    }
-
-    throw new Error('Unreachable code');
-  }
-
-  private throwMissingTimezoneError(): never {
-    throw new BadRequestException(
-      'Timezone must be provided either in request or in related venue',
-    );
-  }
-
-  private async generateValidatedAvailabilities(
-    dto: CreateAvailabilityDto,
-  ): Promise<Omit<Availability, 'id' | 'createdAt' | 'updatedAt'>[]> {
-    const intervalGroups = this.groupIntervals(
-      dto.rules.intervals,
-      dto.timezone,
-    );
-
-    const availabilities = intervalGroups.map((group) =>
-      this.buildAvailabilityData(dto, group),
-    );
-
-    await this.validateNoOverlaps(availabilities);
-
-    return availabilities;
-  }
-
-  private async validateNoOverlaps(
-    availabilities: Omit<Availability, 'id' | 'createdAt' | 'updatedAt'>[],
-  ): Promise<void> {
-    await Promise.all(
-      availabilities.map(async (availability) => {
-        const overlapping =
-          await this.validateAvailabilityIntersections(availability);
-
-        if (overlapping.length) {
-          throw new BadRequestException('Availability intervals overlap');
-        }
-      }),
-    );
   }
 }

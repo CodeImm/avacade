@@ -267,7 +267,7 @@ export class EventsService {
       return [
         {
           start_date: eventStart.toISOString(),
-          end_date: eventStart.add(durationMinutes, 'minute').toISOString(),
+          end_date: eventStart.add(durationMinutes, 'minutes').toISOString(),
         },
       ];
     }
@@ -296,7 +296,7 @@ export class EventsService {
         const localStart = this.dayjs.tz(date.toISOString(), timezone).utc();
         return {
           start_date: localStart.toISOString(),
-          end_date: localStart.add(durationMinutes, 'minute').toISOString(),
+          end_date: localStart.add(durationMinutes, 'minutes').toISOString(),
         };
       });
   }
@@ -319,7 +319,7 @@ export class EventsService {
         {
           start_date: startDate.toISOString(),
           end_date: startDate
-            .add(interval.duration_minutes, 'minute')
+            .add(interval.duration_minutes, 'minutes')
             .toISOString(),
         },
       ];
@@ -341,7 +341,7 @@ export class EventsService {
         return {
           start_date: localStart.toISOString(),
           end_date: localStart
-            .add(interval.duration_minutes, 'minute')
+            .add(interval.duration_minutes, 'minutes')
             .toISOString(),
         };
       });
