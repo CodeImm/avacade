@@ -27,3 +27,7 @@ export * from './event/dto/create-event.dto';
 export * from './event/dto/update-event.dto';
 export * from './event/entities/event.entity';
 export * from './event/types';
+
+export * from './event-template/dto/create-event-template.dto';
+export * from './event-template/dto/update-event-template.dto';
+export * from './event-template/entities/event-template.entity';

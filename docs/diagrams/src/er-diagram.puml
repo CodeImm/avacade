@@ -254,16 +254,18 @@ entity Event {
 
 entity EventTemplate {
   +id : uuid
+  +title : string
+  +duration : int // в минутах
+  +is_client_accessible : boolean // true для клиентских, false для личных
+  +price? : int
+  +auto_confirm?: Boolean / Автоматическое подтверждение для специалистов фрилансеров
+  --
+  +description : text
   +specialist_id : uuid
   +type_id : uuid
   +participant_mode : ParticipantMode
   +delivery : EventDelivery
   +visibility : EventVisibility
-  +is_client_accessible : boolean // true для клиентских, false для личных
-  +title : string
-  +description : text
-  +duration : int // в минутах
-  +is_bookable : boolean
   +platform_link : string // для ONLINE, HYBRID
   +difficulty_level : string
   +is_active : boolean
@@ -286,15 +288,14 @@ enum BookingStatus {
 
 entity Booking {
   +id : uuid
-  +eventId : uuid
+  +eventId? : uuid
+  +template_id : uuid
+  +status : BookingStatus
+  +start_date : datetime
+  +comment : text
+  --
   +client_id : uuid
   +specialist_id : uuid
-  +template_id : uuid 
-  +start_time : datetime
-  +end_time : datetime
-  +status : BookingStatus
-  +price : Decimal
-  +comment : text
   --
   +created_at : datetime
 }

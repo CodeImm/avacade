@@ -82,3 +82,14 @@ model Event {
   // Relations
   space Space? @relation(fields: [spaceId], references: [id])
 }
+
+model EventTemplate {
+  id                   String   @id @default(uuid()) // UUID as the primary key
+  title                String // Title of the event template
+  duration             Int // Duration in minutes
+  price                Int?
+  is_client_accessible Boolean  @default(false)
+  auto_confirm         Boolean  @default(false) // Автоматическое подтверждение для специалистов без организации
+  created_at           DateTime @default(now()) // Creation timestamp
+  updated_at           DateTime @updatedAt // Last update timestamp
+}

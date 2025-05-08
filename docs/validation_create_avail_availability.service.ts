@@ -63,10 +63,14 @@ export class AvailabilityService {
 
     // Валидация входных данных
     if (!venueId && !spaceId) {
-      throw new BadRequestException('Either venueId or spaceId must be provided');
+      throw new BadRequestException(
+        'Either venueId or spaceId must be provided',
+      );
     }
     if (venueId && spaceId) {
-      throw new BadRequestException('Only one of venueId or spaceId can be provided');
+      throw new BadRequestException(
+        'Only one of venueId or spaceId can be provided',
+      );
     }
     if (!dayjs.tz.zone(timezone)) {
       throw new BadRequestException(`Invalid timezone: ${timezone}`);
@@ -114,7 +118,8 @@ export class AvailabilityService {
       // Аналитическая проверка для бесконечных повторений
       if (
         (!recurrence_rule?.until && !recurrence_rule?.count) ||
-        (!existing.rules.recurrence_rule?.until && !existing.rules.recurrence_rule?.count)
+        (!existing.rules.recurrence_rule?.until &&
+          !existing.rules.recurrence_rule?.count)
       ) {
         await this.checkInfiniteIntersections(newAvailability, existing);
       }
@@ -136,7 +141,10 @@ export class AvailabilityService {
     if (!recurrence_rule) {
       // Разовый интервал
       const startDateTime = dayjs.utc(interval.valid_from_utc).tz(timezone);
-      const endDateTime = startDateTime.add(interval.duration_minutes, 'minute');
+      const endDateTime = startDateTime.add(
+        interval.duration_minutes,
+        'minute',
+      );
       intervals.push({ startDateTime, endDateTime });
       return intervals;
     }
@@ -151,8 +159,8 @@ export class AvailabilityService {
         recurrence_rule.frequency === RecurrenceFrequency.DAILY
           ? RRule.DAILY
           : recurrence_rule.frequency === RecurrenceFrequency.MONTHLY
-          ? RRule.MONTHLY
-          : RRule.WEEKLY,
+            ? RRule.MONTHLY
+            : RRule.WEEKLY,
       tzid: timezone,
       dtstart: this.dayjsToDatetime(dtstart),
       byweekday: recurrence_rule.byweekday?.map(
@@ -255,10 +263,7 @@ export class AvailabilityService {
       existingAvailability.timezone,
     );
 
-    if (
-      newStart.isBefore(existingEnd) &&
-      newEnd.isAfter(existingStart)
-    ) {
+    if (newStart.isBefore(existingEnd) && newEnd.isAfter(existingStart)) {
       throw new BadRequestException(
         `Infinite recurrence of new availability intersects with existing availability ${existingAvailability.id} on days ${commonDays.join(', ')}`,
       );

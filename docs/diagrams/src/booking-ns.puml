@@ -6,19 +6,39 @@ participant "System" as System
 participant "NotificationService" as NS
 participant "Database" as DB
 
+== Создание бронирования ==
 Client -> UI: Выбрать шаблон и время
 UI -> System: Создать Booking
-System -> DB: Сохранить Booking (status: PENDING)
-System -> NS: Отправить уведомление о создании записи (Client)
-NS -> Client: Уведомление (email/SMS/push)
-System -> NS: Отправить уведомление о новой записи (Specialist)
-NS -> Specialist: Уведомление (email/SMS/push)
-Specialist -> UI: Подтвердить запись
-UI -> System: Обновить Booking (status: CONFIRMED)
-System -> DB: Создать Event, обновить Booking.eventId
-System -> NS: Отправить уведомление о подтверждении (Client)
-NS -> Client: Уведомление (email/SMS/push)
-System -> NS: Отправить уведомление о создании события (Specialist)
-NS -> Specialist: Уведомление (email/SMS/push)
+System -> DB: Проверить доступность (Space availability)
+System -> DB: Проверить конфликты с событиями
+alt Доступно и нет конфликтов
+  System -> DB: Сохранить Booking (status: PENDING)
+  System -> NS: Отправить уведомление о создании бронирования (Client)
+  NS -> Client: Уведомление (email/SMS/push)
+  System -> NS: Отправить уведомление о новой брони (Specialist)
+  NS -> Specialist: Уведомление (email/SMS/push)
+else Недоступно или конфликт
+  System -> UI: Ошибка (время недоступно или конфликт)
+  UI -> Client: Показать ошибку
+end alt
+
+== Подтверждение/Отклонение бронирования ==
+Specialist -> UI: Подтвердить/Отклонить бронирование
+UI -> System: Обновить Booking (status: CONFIRMED/REJECTED)
+System -> DB: Найти Booking
+alt status = CONFIRMED
+  System -> DB: Создать Event, обновить Booking (status: CONFIRMED)
+  System -> NS: Отправить уведомление о подтверждении (Client)
+  NS -> Client: Уведомление (email/SMS/push)
+  System -> NS: Отправить уведомление о создании события (Specialist)
+  NS -> Specialist: Уведомление (email/SMS/push)
+else status = REJECTED
+  System -> DB: Обновить Booking (status: REJECTED)
+  System -> NS: Отправить уведомление об отклонении (Client)
+  NS -> Client: Уведомление (email/SMS/push)
+else Booking уже обработано
+  System -> UI: Ошибка (бронирование уже обработано)
+  UI -> Specialist: Показать ошибку
+end alt
 
 @enduml
