@@ -641,7 +641,7 @@ export class AvailabilitiesService {
    */
   private validateAndParseDate(date: string): Dayjs {
     const parsed = this.dayjs.utc(date, 'YYYY-MM-DD', true); // strict = true
-    console.log({ parsed });
+
     if (!parsed.isValid()) {
       throw new BadRequestException('Invalid date format. Expected YYYY-MM-DD');
     }
@@ -995,9 +995,11 @@ export class AvailabilitiesService {
     );
 
     const rule = new RRule(rruleOptions);
-    const afterDate = targetDate.tz(timezone).endOf('day').toDate();
 
-    const nextOccurrence = rule.after(afterDate, false);
+    const nextOccurrence = rule.after(
+      dayjsToDatetime(targetDate.add(1, 'day').tz(timezone)),
+      true,
+    );
 
     if (!nextOccurrence) {
       // If no next occurrence, return just the first part
