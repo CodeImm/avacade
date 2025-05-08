@@ -640,8 +640,8 @@ export class AvailabilitiesService {
    * @throws BadRequestException if date format is invalid
    */
   private validateAndParseDate(date: string): Dayjs {
-    const parsed = this.dayjs(date, 'YYYY-MM-DD', true); // strict = true
-
+    const parsed = this.dayjs.utc(date, 'YYYY-MM-DD', true); // strict = true
+    console.log({ parsed });
     if (!parsed.isValid()) {
       throw new BadRequestException('Invalid date format. Expected YYYY-MM-DD');
     }
@@ -708,129 +708,48 @@ export class AvailabilitiesService {
     availability: Availability,
     targetDate: Dayjs,
   ): Promise<Availability | Availability[]> {
-    // Check if target date is the first day of the interval
-    const firstDayUpdate = await this.handleRecurringFirstDay(
-      tx,
-      availability,
-      targetDate,
+    const { timezone, rules } = availability;
+    const { interval, recurrence_rule } = rules;
+
+    // Create RRule options for generating occurrences
+    const intervalStart = this.dayjs.tz(interval.valid_from, timezone);
+    const untilDate = recurrence_rule!.until
+      ? this.dayjs.tz(recurrence_rule!.until, timezone)
+      : null;
+
+    // Get the first and last occurrence dates based on the recurrence rule
+    const rruleOptions: Partial<Options> = createRRuleOptions(
+      recurrence_rule!,
+      timezone,
+      intervalStart,
+      untilDate,
     );
 
-    if (firstDayUpdate) {
-      return firstDayUpdate;
+    const rule = new RRule(rruleOptions);
+    const occurrences = (
+      untilDate ? rule.all() : rule.all((_, i) => i < 3)
+    ).map((date) => this.dayjs.tz(date.toISOString(), timezone).utc());
+
+    if (occurrences.length === 0) {
+      // No occurrences found, just delete the availability
+      return tx.availability.delete({ where: { id: availability.id } });
     }
 
-    // Handle splitting the recurring interval
+    const firstOccurrence = occurrences[0];
+    const lastOccurrence = occurrences[occurrences.length - 1];
+
+    // Check if target date is the first occurrence
+    if (targetDate.isSame(firstOccurrence, 'day')) {
+      return this.handleFirstOccurrenceRemoval(tx, availability, targetDate);
+    }
+
+    // Check if target date is the last occurrence
+    if (untilDate && targetDate.isSame(lastOccurrence, 'day')) {
+      return this.handleLastOccurrenceRemoval(tx, availability, targetDate);
+    }
+
+    // If it's neither first nor last, split the interval
     return this.splitRecurringInterval(tx, availability, targetDate);
-  }
-
-  /**
-   * Handles the case when the date to remove is the first day of the interval
-   * @param tx Prisma transaction client
-   * @param availability Availability object
-   * @param targetDate Date to remove (Dayjs in UTC)
-   * @returns Updated availability or null if not the first day
-   */
-  private async handleRecurringFirstDay(
-    tx: Prisma.TransactionClient,
-    availability: Availability,
-    targetDate: Dayjs,
-  ): Promise<Availability | null> {
-    const { interval } = availability.rules;
-    const timezone = availability.timezone;
-    const intervalStart = this.dayjs
-      .tz(interval.valid_from, timezone)
-      .startOf('day');
-
-    // If target date matches the first day of the interval
-    if (intervalStart.isSame(targetDate, 'day')) {
-      // Shift valid_from to the next day
-      const newValidFrom = targetDate
-        .add(1, 'day')
-        .tz(timezone)
-        .startOf('day')
-        .format('YYYY-MM-DDTHH:mm:ss');
-
-      const updatedRules = {
-        ...availability.rules,
-        interval: {
-          ...interval,
-          valid_from: newValidFrom,
-          // TODO: stdate тоже поменять?
-        },
-      };
-
-      return tx.availability.update({
-        where: { id: availability.id },
-        data: { rules: updatedRules },
-      });
-    }
-
-    return null;
-  }
-
-  /**
-   * Splits recurring interval into two parts: before and after the specified date
-   * @param tx Prisma transaction client
-   * @param availability Availability object
-   * @param targetDate Split date (Dayjs in UTC)
-   * @returns Array of two availabilities: before and after the specified date
-   */
-  private async splitRecurringInterval(
-    tx: Prisma.TransactionClient,
-    availability: Availability,
-    targetDate: Dayjs,
-  ): Promise<Availability[]> {
-    const timezone = availability.timezone;
-    const untilDate = targetDate.subtract(1, 'day').format('YYYY-MM-DD');
-
-    // Update current availability, setting until to the day before target date
-    const current = await tx.availability.findUniqueOrThrow({
-      where: { id: availability.id },
-      select: { rules: true },
-    });
-
-    // Copy rules and update end date
-    const updatedRules: Availability['rules'] = {
-      ...current.rules,
-      recurrence_rule: {
-        ...current.rules.recurrence_rule!,
-        until: untilDate,
-      },
-    };
-
-    const updatedAvailability = await tx.availability.update({
-      where: { id: availability.id },
-      data: { rules: updatedRules },
-    });
-
-    // Create new availability starting from the day after target date
-    const newIntervalStart = targetDate
-      .add(1, 'day')
-      .tz(timezone)
-      .startOf('day')
-      .format('YYYY-MM-DDTHH:mm:ss');
-
-    const newAvailability = await tx.availability.create({
-      data: {
-        ...availability,
-        id: undefined, // Let Prisma generate a new ID
-        rules: {
-          ...availability.rules,
-          interval: {
-            ...availability.rules.interval,
-            valid_from: newIntervalStart,
-          },
-          recurrence_rule: {
-            ...availability.rules.recurrence_rule!,
-            // Preserve original until date
-            until: availability.rules.recurrence_rule!.until,
-            // TODO: dtstart добавить?
-          },
-        },
-      },
-    });
-
-    return [updatedAvailability, newAvailability];
   }
 
   private generateAvailabilityIntervals(
@@ -926,5 +845,198 @@ export class AvailabilitiesService {
     });
 
     return intervals;
+  }
+
+  /**
+   * Handles the case when the date to remove is the first occurrence of the interval
+   * @param tx Prisma transaction client
+   * @param availability Availability object
+   * @param targetDate Date to remove (Dayjs in UTC)
+   * @returns Updated availability with adjusted start date
+   */
+  private async handleFirstOccurrenceRemoval(
+    tx: Prisma.TransactionClient,
+    availability: Availability,
+    targetDate: Dayjs,
+  ): Promise<Availability> {
+    const { timezone, rules } = availability;
+    const { interval, recurrence_rule } = rules;
+
+    // Find the next occurrence after the target date
+    const rruleOptions: Partial<Options> = createRRuleOptions(
+      recurrence_rule!,
+      timezone,
+      this.dayjs.tz(interval.valid_from, timezone),
+      recurrence_rule!.until
+        ? this.dayjs.tz(recurrence_rule!.until, timezone)
+        : null,
+    );
+
+    const rule = new RRule(rruleOptions);
+    const nextOccurrence = rule.after(
+      dayjsToDatetime(targetDate.add(1, 'day').tz(timezone)),
+      true,
+    );
+
+    if (!nextOccurrence) {
+      // If no next occurrence, just delete the availability
+      return tx.availability.delete({ where: { id: availability.id } });
+    }
+
+    // Update the rule with a new dtstart matching the next occurrence
+    const nextOccurrenceDate = this.dayjs.tz(
+      nextOccurrence.toISOString(),
+      timezone,
+    );
+
+    // Create new time string maintaining original time portion
+    const originalTime = nextOccurrenceDate.format('HH:mm:ss');
+    const newValidFromWithTime =
+      nextOccurrenceDate.format('YYYY-MM-DD') + 'T' + originalTime;
+
+    const updatedRules = {
+      ...rules,
+      interval: {
+        ...interval,
+        valid_from: newValidFromWithTime,
+      },
+      recurrence_rule: {
+        ...recurrence_rule,
+        dtstart: nextOccurrenceDate.format('YYYY-MM-DD'),
+      },
+    };
+
+    return tx.availability.update({
+      where: { id: availability.id },
+      data: { rules: updatedRules },
+    });
+  }
+
+  /**
+   * Handles the case when the date to remove is the last occurrence of the interval
+   * @param tx Prisma transaction client
+   * @param availability Availability object
+   * @param targetDate Date to remove (Dayjs in UTC)
+   * @returns Updated availability with adjusted end date
+   */
+  private async handleLastOccurrenceRemoval(
+    tx: Prisma.TransactionClient,
+    availability: Availability,
+    targetDate: Dayjs,
+  ): Promise<Availability> {
+    const { timezone, rules } = availability;
+    const { recurrence_rule } = rules;
+
+    // Update until date to be the day before the target date
+    const newUntilDate = targetDate
+      .subtract(1, 'day')
+      .tz(timezone)
+      .format('YYYY-MM-DD');
+
+    const updatedRules = {
+      ...rules,
+      recurrence_rule: {
+        ...recurrence_rule,
+        until: newUntilDate,
+      },
+    };
+
+    return tx.availability.update({
+      where: { id: availability.id },
+      data: { rules: updatedRules },
+    });
+  }
+
+  /**
+   * Splits recurring interval into two parts: before and after the specified date
+   * @param tx Prisma transaction client
+   * @param availability Availability object
+   * @param targetDate Split date (Dayjs in UTC)
+   * @returns Array of two availabilities: before and after the specified date
+   */
+  private async splitRecurringInterval(
+    tx: Prisma.TransactionClient,
+    availability: Availability,
+    targetDate: Dayjs,
+  ): Promise<Availability[]> {
+    const { timezone, rules } = availability;
+    const { interval, recurrence_rule } = rules;
+
+    // Set "until" for the first part (end on day before target date)
+    const untilDate = targetDate
+      .subtract(1, 'day')
+      .tz(timezone)
+      .format('YYYY-MM-DD');
+
+    // Update first part (original availability)
+    const firstPartRules = {
+      ...rules,
+      recurrence_rule: {
+        ...recurrence_rule,
+        until: untilDate,
+      },
+    };
+
+    const updatedAvailability = await tx.availability.update({
+      where: { id: availability.id },
+      data: { rules: firstPartRules },
+    });
+
+    // Create second part (new availability starting after target date)
+
+    // Find the next occurrence after the target date
+    const rruleOptions: Partial<Options> = createRRuleOptions(
+      recurrence_rule!,
+      timezone,
+      this.dayjs.tz(interval.valid_from, timezone),
+      recurrence_rule!.until
+        ? this.dayjs.tz(recurrence_rule!.until, timezone)
+        : null,
+    );
+
+    const rule = new RRule(rruleOptions);
+    const afterDate = targetDate.tz(timezone).endOf('day').toDate();
+
+    const nextOccurrence = rule.after(afterDate, false);
+
+    if (!nextOccurrence) {
+      // If no next occurrence, return just the first part
+      return [updatedAvailability];
+    }
+
+    const nextOccurrenceDate = this.dayjs.tz(
+      nextOccurrence.toISOString(),
+      timezone,
+    );
+
+    // Preserve original time portion but use next occurrence date
+    const originalTime = this.dayjs
+      .tz(interval.valid_from, timezone)
+      .format('HH:mm:ss');
+    const newValidFrom =
+      nextOccurrenceDate.format('YYYY-MM-DD') + 'T' + originalTime;
+
+    const secondPartRules = {
+      ...rules,
+      interval: {
+        ...interval,
+        valid_from: newValidFrom,
+      },
+      recurrence_rule: {
+        ...recurrence_rule,
+        dtstart: nextOccurrenceDate.format('YYYY-MM-DD'),
+        // Keep original until date
+      },
+    };
+
+    const newAvailability = await tx.availability.create({
+      data: {
+        ...availability,
+        id: undefined, // Let Prisma generate a new ID
+        rules: secondPartRules,
+      },
+    });
+
+    return [updatedAvailability, newAvailability];
   }
 }

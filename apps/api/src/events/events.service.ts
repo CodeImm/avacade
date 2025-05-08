@@ -34,30 +34,26 @@ export class EventsService {
   async create(createEventDto: CreateEventDto) {
     const { spaceId, timezone, interval, recurrence_rule } = createEventDto;
 
-    // Валидация spaceId
+    // Validate space existence
     const space = await this.prisma.space.findUnique({
       where: { id: spaceId },
+      select: { id: true }, // Only select what's needed
     });
 
     if (!space) {
       throw new BadRequestException('Invalid spaceId');
     }
 
-    // Валидация дат
-    // TODO: Надо учесть, что если указаны дни недели и событие указано не в тот день недели
-    // ( например в ПН, а weekdays - ВТ, СР), то eventStart может сместиться вперед и не надо валидировать время до eventStart
+    // Validate event interval
     const eventStart = this.dayjs.utc(interval.start_date);
     const eventEnd = this.dayjs.utc(interval.end_date);
 
-    if (!eventStart.isValid() || !eventEnd.isValid()) {
-      throw new BadRequestException('Invalid date format');
-    }
+    this.validateEventDates(eventStart, eventEnd);
 
-    if (eventEnd.isSameOrBefore(eventStart)) {
-      throw new BadRequestException('End date must be after start date');
+    // Validate recurrence rule if provided
+    if (recurrence_rule?.until) {
+      this.validateRecurrenceUntil(recurrence_rule.until, eventStart);
     }
-
-    // TODO: добавить проверку что until после начала интервала
 
     // Определение периода генерации интервалов (сл. день 00:00:00, смотря как работает getAvailabilityIntervals)
     const periodEnd = recurrence_rule?.until
@@ -74,6 +70,8 @@ export class EventsService {
         { type: AvailabilityEntityType.SPACE, id: spaceId },
       );
 
+    console.log(availabilityIntervals[0]);
+
     if (!availabilityIntervals.length) {
       throw new BadRequestException(
         'Event does not fall within any availability interval',
@@ -84,7 +82,7 @@ export class EventsService {
     const mergedIntervals = this.mergeSequentialIntervals(
       availabilityIntervals,
     );
-
+    console.log(mergedIntervals[0]);
     // Генерация экземпляров событий
     const eventInstances = this.generateEventInstances(
       createEventDto,
@@ -124,17 +122,14 @@ export class EventsService {
       throw new BadRequestException('Event conflicts with existing events');
     }
 
-    // Форматирование интервала события
-    const startLocal = eventStart.tz(timezone);
-    const endLocal = eventEnd.tz(timezone);
-    const eventInterval = {
-      start_time: startLocal.format('HH:mm'),
-      end_time: endLocal.format('HH:mm'),
-      duration_minutes: endLocal.diff(startLocal, 'minute'),
-      valid_from: startLocal.format('YYYY-MM-DDTHH:mm:ss'),
-    };
+    // Format event interval for persistence
+    const eventInterval = this.formatEventInterval(
+      eventStart,
+      eventEnd,
+      timezone,
+    );
 
-    // Создание события
+    // Create and return the event
     return this.prisma.event.create({
       data: {
         ...createEventDto,
@@ -188,34 +183,6 @@ export class EventsService {
     });
   }
 
-  private mergeSequentialIntervals(intervals: IntervalDto[]): Interval[] {
-    if (!intervals.length) return [];
-    if (intervals.length === 1) return [intervals[0]!];
-
-    const sortedIntervals = intervals.sort((a, b) =>
-      this.dayjs(a.start_date).diff(this.dayjs(b.start_date)),
-    );
-    const merged: Interval[] = [];
-    let current = { ...sortedIntervals[0] } as Interval;
-
-    for (let i = 1; i < sortedIntervals.length; i++) {
-      const next = sortedIntervals[i]!;
-      const currentEnd = this.dayjs(current.end_date);
-      const nextStart = this.dayjs(next.start_date);
-
-      if (currentEnd.isSameOrAfter(nextStart)) {
-        current.end_date = this.dayjs
-          .max(currentEnd, this.dayjs(next.end_date))
-          .toISOString();
-      } else {
-        merged.push(current);
-        current = { ...next };
-      }
-    }
-    merged.push(current);
-    return merged;
-  }
-
   // private async checkConflictingEvents(
   //   spaceId: string,
   //   eventStart: Dayjs,
@@ -251,6 +218,85 @@ export class EventsService {
   //     });
   //   return conflictingIntervals.length > 0;
   // }
+
+  // =============== PRIVATE METHODS ===============
+
+  /**
+   * Validates that event dates are valid and properly ordered
+   */
+  private validateEventDates(eventStart: Dayjs, eventEnd: Dayjs): void {
+    if (!eventStart.isValid() || !eventEnd.isValid()) {
+      throw new BadRequestException('Invalid date format');
+    }
+
+    if (eventEnd.isSameOrBefore(eventStart)) {
+      throw new BadRequestException('End date must be after start date');
+    }
+  }
+
+  /**
+   * Validates that the recurrence until date is after the event start date
+   */
+  private validateRecurrenceUntil(until: string, eventStart: Dayjs): void {
+    const untilDate = this.dayjs(until);
+
+    if (!untilDate.isValid()) {
+      throw new BadRequestException('Invalid recurrence until date format');
+    }
+
+    if (untilDate.isBefore(eventStart)) {
+      throw new BadRequestException(
+        'Recurrence until date must be after event start date',
+      );
+    }
+  }
+
+  /**
+   * Formats event interval for database storage
+   */
+  private formatEventInterval(
+    eventStart: Dayjs,
+    eventEnd: Dayjs,
+    timezone: string,
+  ) {
+    const startLocal = eventStart.tz(timezone);
+    const endLocal = eventEnd.tz(timezone);
+
+    return {
+      start_time: startLocal.format('HH:mm'),
+      end_time: endLocal.format('HH:mm'),
+      duration_minutes: endLocal.diff(startLocal, 'minute'),
+      valid_from: startLocal.format('YYYY-MM-DDTHH:mm:ss'),
+    };
+  }
+
+  private mergeSequentialIntervals(intervals: IntervalDto[]): Interval[] {
+    if (!intervals.length) return [];
+    if (intervals.length === 1) return [intervals[0]!];
+
+    const sortedIntervals = intervals.sort((a, b) =>
+      this.dayjs(a.start_date).diff(this.dayjs(b.start_date)),
+    );
+    const merged: Interval[] = [];
+    let current = { ...sortedIntervals[0] } as Interval;
+
+    for (let i = 1; i < sortedIntervals.length; i++) {
+      const next = sortedIntervals[i]!;
+      const currentEnd = this.dayjs(current.end_date);
+      const nextStart = this.dayjs(next.start_date);
+
+      if (currentEnd.isSameOrAfter(nextStart)) {
+        current.end_date = this.dayjs
+          .max(currentEnd, this.dayjs(next.end_date))
+          .toISOString();
+      } else {
+        merged.push(current);
+        current = { ...next };
+      }
+    }
+    merged.push(current);
+    return merged;
+  }
 
   private generateEventInstances(
     createEventDto: CreateEventDto,
