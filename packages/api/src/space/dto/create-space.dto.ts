@@ -16,7 +16,7 @@ export class CreateSpaceDto {
   })
   @IsString()
   @IsNotEmpty()
-  venueId!: string;
+  venue_id!: string;
 
   @ApiPropertyOptional({
     description: 'Capacity of the space (optional)',

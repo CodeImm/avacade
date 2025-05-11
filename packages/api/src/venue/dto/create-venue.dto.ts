@@ -10,7 +10,7 @@ export class CreateVenueDto {
   @IsString()
   @IsNotEmpty()
   @ApiProperty({ type: String })
-  organizationId!: string;
+  organization_id!: string;
 
   @ApiProperty({
     description: 'Time zone of the venue in IANA format',

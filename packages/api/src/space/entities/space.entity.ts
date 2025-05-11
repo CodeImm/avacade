@@ -18,7 +18,7 @@ export class Space implements PrismaSpace {
     description: 'ID of the associated venue',
     example: '123e4567-e89b-12d3-a456-426614174000',
   })
-  venueId!: string;
+  venue_id!: string;
 
   @ApiProperty({
     description: 'Capacity of the space',
@@ -42,7 +42,7 @@ export class Space implements PrismaSpace {
     format: 'date-time',
     example: '2025-04-25T12:00:00Z',
   })
-  createdAt!: Date;
+  created_at!: Date;
 
   @ApiProperty({
     description: 'Last update time of the space',
@@ -50,5 +50,5 @@ export class Space implements PrismaSpace {
     format: 'date-time',
     example: '2025-04-25T15:00:00Z',
   })
-  updatedAt!: Date;
+  updated_at!: Date;
 }

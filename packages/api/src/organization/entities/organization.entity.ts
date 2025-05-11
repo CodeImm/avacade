@@ -20,7 +20,7 @@ export class Organization implements PrismaOrganization {
     format: 'date-time',
     example: '2025-04-25T10:00:00Z',
   })
-  createdAt!: Date;
+  created_at!: Date;
 
   @ApiProperty({
     description: 'Last update time of the organization',
@@ -28,5 +28,5 @@ export class Organization implements PrismaOrganization {
     format: 'date-time',
     example: '2025-04-25T15:30:00Z',
   })
-  updatedAt!: Date;
+  updated_at!: Date;
 }

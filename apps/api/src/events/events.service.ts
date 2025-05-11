@@ -34,11 +34,11 @@ export class EventsService {
   ) {}
 
   async create(createEventDto: CreateEventDto) {
-    const { spaceId, timezone, interval, recurrence_rule } = createEventDto;
+    const { space_id, timezone, interval, recurrence_rule } = createEventDto;
 
     // Validate space existence
     const space = await this.prisma.space.findUnique({
-      where: { id: spaceId },
+      where: { id: space_id },
       select: { id: true }, // Only select what's needed
     });
 
@@ -69,7 +69,7 @@ export class EventsService {
       await this.availabilitiesService.getAvailabilityIntervalsForEntity(
         eventStart.format('YYYY-MM-DD'),
         periodEnd,
-        { type: AvailabilityEntityType.SPACE, id: spaceId },
+        { type: AvailabilityEntityType.SPACE, id: space_id },
       );
 
     if (!availabilityIntervals.length) {
@@ -113,7 +113,7 @@ export class EventsService {
 
     // Проверка пересечений с существующими событиями
     const hasConflictingEvents = await this.checkConflictingEvents(
-      spaceId,
+      space_id,
       eventInstances,
       timezone,
     );
@@ -394,7 +394,7 @@ export class EventsService {
     timezone: string,
   ): Promise<boolean> {
     const existingEvents = await this.prisma.event.findMany({
-      where: { spaceId },
+      where: { space_id: spaceId },
     });
 
     for (const event of existingEvents) {

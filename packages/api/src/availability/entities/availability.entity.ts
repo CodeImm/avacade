@@ -16,14 +16,14 @@ export class Availability implements PrismaAvailability {
     nullable: true,
     example: '123e4567-e89b-12d3-a456-426614174000',
   })
-  venueId!: string | null;
+  venue_id!: string | null;
 
   @ApiProperty({
     description: 'ID of the associated space',
     nullable: true,
     example: '123e4567-e89b-12d3-a456-426614174000',
   })
-  spaceId!: string | null;
+  space_id!: string | null;
 
   @ApiProperty({
     description: 'Time zone of the venue in IANA format',
@@ -59,7 +59,7 @@ export class Availability implements PrismaAvailability {
     format: 'date-time',
     example: '2025-04-25T12:00:00Z',
   })
-  createdAt!: Date;
+  created_at!: Date;
 
   @ApiProperty({
     description: 'Update time',
@@ -67,5 +67,5 @@ export class Availability implements PrismaAvailability {
     format: 'date-time',
     example: '2025-04-25T12:00:00Z',
   })
-  updatedAt!: Date;
+  updated_at!: Date;
 }

@@ -10,15 +10,14 @@ export class CreateEventRequestDto {
   @IsUUID()
   event_template_id!: string;
 
-  @ApiPropertyOptional({
+  @ApiProperty({
     description: 'Preferred date and time for the event',
     type: String,
     format: 'date-time',
     example: '2025-06-01T14:00:00Z',
   })
   @IsDateString()
-  @IsOptional()
-  preferred_time?: string;
+  preferred_time!: string;
 
   @ApiPropertyOptional({
     description: 'Optional comment provided by the user',

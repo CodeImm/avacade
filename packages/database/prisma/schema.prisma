@@ -20,23 +20,23 @@ datasource db {
 }
 
 model Organization {
-  id        String   @id @default(uuid())
-  name      String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  Venue     Venue[]
+  id         String   @id @default(uuid())
+  name       String
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+  Venue      Venue[]
 }
 
 model Venue {
-  id             String         @id @default(uuid())
-  name           String
-  organizationId String
-  timezone       String
-  organization   Organization   @relation(fields: [organizationId], references: [id])
-  Space          Space[]
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
-  Availability   Availability[]
+  id              String         @id @default(uuid())
+  name            String
+  organization_id String
+  timezone        String
+  created_at      DateTime       @default(now())
+  updated_at      DateTime       @updatedAt
+  Space           Space[]
+  Organization    Organization   @relation(fields: [organization_id], references: [id])
+  Availability    Availability[]
 }
 
 model Space {
@@ -44,43 +44,47 @@ model Space {
   name         String
   capacity     Int?
   floor        Int?
-  venueId      String
-  venue        Venue          @relation(fields: [venueId], references: [id])
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
+  venue_id     String
+  venue        Venue          @relation(fields: [venue_id], references: [id])
+  created_at   DateTime       @default(now())
+  updated_at   DateTime       @updatedAt
   Availability Availability[]
   Event        Event[]
 }
 
 model Availability {
-  id        String   @id @default(uuid())
-  venueId   String?
-  spaceId   String?
-  timezone  String
+  id         String   @id @default(uuid())
+  venue_id   String?
+  space_id   String?
+  timezone   String
   /// [AvailabilityRules]
-  rules     Json
-  venue     Venue?   @relation(fields: [venueId], references: [id], onDelete: Cascade)
-  space     Space?   @relation(fields: [spaceId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  rules      Json
+  venue      Venue?   @relation(fields: [venue_id], references: [id], onDelete: Cascade)
+  space      Space?   @relation(fields: [space_id], references: [id], onDelete: Cascade)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
 }
 
 model Event {
-  id              String   @id @default(uuid())
-  spaceId         String
-  title           String
-  timezone        String
+  id               String   @id @default(uuid())
+  event_request_id String?
+  space_id         String
+  title            String
+  description      String?
+  timezone         String
+  price            Int?
   /// [Interval]
-  interval        Json
+  interval         Json
   /// [RecurrenceRule]
-  recurrence_rule Json?
+  recurrence_rule  Json?
   /// [EventStatus] 
-  status          String
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  status           String
+  created_at       DateTime @default(now())
+  updated_at       DateTime @updatedAt
 
   // Relations
-  Space Space? @relation(fields: [spaceId], references: [id])
+  Space        Space?        @relation(fields: [space_id], references: [id])
+  EventRequest EventRequest? @relation(fields: [event_request_id], references: [id])
 }
 
 model EventTemplate {
@@ -118,4 +122,5 @@ model EventRequest {
   created_at       DateTime      @default(now())
   updated_at       DateTime      @updatedAt
   EventTemplate    EventTemplate @relation(fields: [event_template_id], references: [id])
+  Event            Event[]
 }

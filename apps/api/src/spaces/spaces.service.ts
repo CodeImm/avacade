@@ -12,19 +12,19 @@ export class SpacesService {
 
   async create(createSpaceDto: CreateSpaceDto): Promise<Space> {
     const venue = await this.prisma.venue.findUnique({
-      where: { id: createSpaceDto.venueId },
+      where: { id: createSpaceDto.venue_id },
     });
 
     if (!venue) {
       throw new NotFoundException(
-        `Venue with ID ${createSpaceDto.venueId} not found`,
+        `Venue with ID ${createSpaceDto.venue_id} not found`,
       );
     }
 
     const existingSpace = await this.prisma.space.findFirst({
       where: {
         name: createSpaceDto.name,
-        venueId: createSpaceDto.venueId,
+        venue_id: createSpaceDto.venue_id,
       },
     });
 
@@ -64,23 +64,23 @@ export class SpacesService {
       throw new NotFoundException(`Space with ID ${id} not found`);
     }
 
-    if (updateSpaceDto.venueId) {
+    if (updateSpaceDto.venue_id) {
       const venue = await this.prisma.venue.findUnique({
-        where: { id: updateSpaceDto.venueId },
+        where: { id: updateSpaceDto.venue_id },
       });
 
       if (!venue) {
         throw new NotFoundException(
-          `Venue with ID ${updateSpaceDto.venueId} not found`,
+          `Venue with ID ${updateSpaceDto.venue_id} not found`,
         );
       }
     }
 
-    if (updateSpaceDto.name && updateSpaceDto.venueId) {
+    if (updateSpaceDto.name && updateSpaceDto.venue_id) {
       const existingSpace = await this.prisma.space.findFirst({
         where: {
           name: updateSpaceDto.name,
-          venueId: updateSpaceDto.venueId,
+          venue_id: updateSpaceDto.venue_id,
           id: { not: id },
         },
       });

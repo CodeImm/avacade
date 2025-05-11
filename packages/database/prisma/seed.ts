@@ -12,7 +12,7 @@ async function main() {
   const venue = await prisma.venue.create({
     data: {
       name: 'Main Venue',
-      organizationId: organization.id,
+      organization_id: organization.id,
       timezone: 'Europe/Moscow',
     },
   });
@@ -23,7 +23,7 @@ async function main() {
       name: 'Conference Room A',
       capacity: 50,
       floor: 1,
-      venueId: venue.id,
+      venue_id: venue.id,
     },
   });
 
@@ -32,14 +32,14 @@ async function main() {
       name: 'Conference Room B',
       capacity: 30,
       floor: 2,
-      venueId: venue.id,
+      venue_id: venue.id,
     },
   });
 
   // Create availability records for each space
   await prisma.availability.create({
     data: {
-      spaceId: space1.id,
+      space_id: space1.id,
       timezone: 'Europe/Moscow',
       rules: {
         interval: {
@@ -61,7 +61,7 @@ async function main() {
 
   await prisma.availability.create({
     data: {
-      spaceId: space2.id,
+      space_id: space2.id,
       timezone: 'Europe/Moscow',
       rules: {
         interval: {

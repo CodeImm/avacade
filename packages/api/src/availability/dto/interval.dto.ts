@@ -7,8 +7,8 @@ export interface Interval {
   start_date: string; // Date in YYYY-MM-DD format (e.g., 2025-05-01)
   end_date: string; // Date in YYYY-MM-DD format (e.g., 2025-05-01)
   availability_id?: string | null;
-  venueId?: string | null;
-  spaceId?: string | null;
+  venue_id?: string | null;
+  space_id?: string | null;
 }
 
 export class IntervalDto implements Interval {
@@ -45,7 +45,7 @@ export class IntervalDto implements Interval {
   })
   @IsOptional()
   @IsUUID()
-  venueId?: string | null;
+  venue_id?: string | null;
 
   @ApiProperty({
     description: 'UUID of the space (optional)',
@@ -55,5 +55,5 @@ export class IntervalDto implements Interval {
   })
   @IsOptional()
   @IsUUID()
-  spaceId?: string | null;
+  space_id?: string | null;
 }

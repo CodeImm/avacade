@@ -12,12 +12,12 @@ export class VenuesService {
 
   async create(createVenueDto: CreateVenueDto): Promise<Venue> {
     const organization = await this.prisma.organization.findUnique({
-      where: { id: createVenueDto.organizationId },
+      where: { id: createVenueDto.organization_id },
     });
 
     if (!organization) {
       throw new NotFoundException(
-        `Organization with ID ${createVenueDto.organizationId} not found`,
+        `Organization with ID ${createVenueDto.organization_id} not found`,
       );
     }
 
@@ -62,7 +62,7 @@ export class VenuesService {
     }
 
     return this.prisma.space.findMany({
-      where: { venueId },
+      where: { venue_id: venueId },
       orderBy: { name: 'asc' },
     });
   }
@@ -76,14 +76,14 @@ export class VenuesService {
       throw new NotFoundException(`Venue with ID ${id} not found`);
     }
 
-    if (updateVenueDto.organizationId) {
+    if (updateVenueDto.organization_id) {
       const organization = await this.prisma.organization.findUnique({
-        where: { id: updateVenueDto.organizationId },
+        where: { id: updateVenueDto.organization_id },
       });
 
       if (!organization) {
         throw new NotFoundException(
-          `Organization with ID ${updateVenueDto.organizationId} not found`,
+          `Organization with ID ${updateVenueDto.organization_id} not found`,
         );
       }
     }

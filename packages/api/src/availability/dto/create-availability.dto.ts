@@ -34,7 +34,7 @@ export class CreateAvailabilityDto {
   @IsString()
   @IsOptional()
   @Validate(OnlyOneIdProvidedConstraint)
-  venueId?: string;
+  venue_id?: string;
 
   @ApiPropertyOptional({
     description:
@@ -43,7 +43,7 @@ export class CreateAvailabilityDto {
   })
   @IsString()
   @IsOptional()
-  spaceId?: string;
+  space_id?: string;
 
   @ApiProperty({
     description: 'Time zone of the venue in IANA format',

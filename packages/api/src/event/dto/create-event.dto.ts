@@ -21,7 +21,7 @@ export class CreateEventDto {
     type: String,
   })
   @IsUUID()
-  spaceId!: string;
+  space_id!: string;
 
   @ApiProperty({
     description: 'Title of the event',

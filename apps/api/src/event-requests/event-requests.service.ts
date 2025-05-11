@@ -1,5 +1,14 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { CreateEventRequestDto, UpdateEventRequestDto } from '@repo/api';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import {
+  CreateEventRequestDto,
+  EventRequestStatus,
+  EventStatus,
+  UpdateEventRequestDto,
+} from '@repo/api';
 import { PrismaService } from '../prisma/prisma.service';
 import { EventsService } from '../events/events.service';
 
@@ -16,8 +25,13 @@ export class EventRequestsService {
     private readonly eventsService: EventsService,
   ) {}
 
+  /**
+   * Creates a new event request, and if auto_confirm is true, creates an Event and Booking.
+   * @param createEventRequestDto - DTO containing event request details
+   * @returns Created event request (and associated event/booking if auto_confirm)
+   */
   async create(createEventRequestDto: CreateEventRequestDto) {
-    // Получение шаблона события для создания снапшота
+    // Fetch the event template to create snapshots and validate
     const eventTemplate = await this.prisma.eventTemplate.findUnique({
       where: { id: createEventRequestDto.event_template_id },
     });
@@ -28,33 +42,71 @@ export class EventRequestsService {
       );
     }
 
-    // Проверка, что шаблон активен и доступен для запроса клиентами
+    // Check if the template is active
     if (!eventTemplate.is_active) {
-      throw new Error('Event template is not active');
+      throw new ForbiddenException('Event template is not active');
     }
 
+    // Check if the template is accessible for client requests
     if (eventTemplate.accessibility === 'STAFF_ONLY') {
-      throw new Error(
+      throw new ForbiddenException(
         'This event template is not available for client requests',
       );
     }
 
-    // Создание запроса с снапшотом данных шаблона
+    // Prepare common event request data
+    const eventRequestData = {
+      event_template_id: createEventRequestDto.event_template_id,
+      preferred_time: createEventRequestDto.preferred_time,
+      comment: createEventRequestDto.comment,
+      title_snapshot: eventTemplate.title,
+      description_snapshot: eventTemplate.description,
+      duration_snapshot: eventTemplate.duration,
+      price_snapshot: eventTemplate.price,
+      status: eventTemplate.auto_confirm
+        ? EventRequestStatus.CONFIRMED
+        : EventRequestStatus.PENDING,
+    };
+
+    // If auto_confirm is true, create Event and Booking in a transaction
+    if (eventTemplate.auto_confirm) {
+      return this.prisma.$transaction(async (tx) => {
+        // Create the event request
+        const eventRequest = await tx.eventRequest.create({
+          data: eventRequestData,
+        });
+
+        // Calculate start and end times for the event
+        const startTime = new Date(createEventRequestDto.preferred_time);
+        const endTime = new Date(
+          startTime.getTime() + eventTemplate.duration * 60 * 1000,
+        );
+
+        const eventData = {
+          event_request_id: eventRequest.id,
+          title: eventTemplate.title,
+          description: eventTemplate.description,
+          timezone: '',
+          interval: {},
+          status: EventStatus.CONFIRMED,
+          price: eventTemplate.price,
+          space_id: 'null',
+        };
+
+        // Create the event
+        const event = await tx.event.create({
+          data: eventData,
+        });
+
+        //TODO: Create the booking
+
+        return { eventRequest, event };
+      });
+    }
+
+    // If auto_confirm is false, create only the event request
     return this.prisma.eventRequest.create({
-      data: {
-        event_template_id: createEventRequestDto.event_template_id,
-        preferred_time: createEventRequestDto.preferred_time,
-        comment: createEventRequestDto.comment,
-
-        // Снапшот данных шаблона
-        title_snapshot: eventTemplate.title,
-        description_snapshot: eventTemplate.description,
-        duration_snapshot: eventTemplate.duration,
-        price_snapshot: eventTemplate.price,
-
-        // Для автоматического подтверждения шаблонов
-        status: eventTemplate.auto_confirm ? 'APPROVED' : 'PENDING',
-      },
+      data: eventRequestData,
     });
   }
 

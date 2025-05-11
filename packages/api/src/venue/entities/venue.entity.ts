@@ -18,7 +18,7 @@ export class Venue implements PrismaVenue {
     description: 'ID of the associated organization',
     example: '123e4567-e89b-12d3-a456-426614174000',
   })
-  organizationId!: string;
+  organization_id!: string;
 
   @ApiProperty({
     description: 'Time zone of the venue in IANA format',
@@ -32,7 +32,7 @@ export class Venue implements PrismaVenue {
     format: 'date-time',
     example: '2025-04-25T10:00:00Z',
   })
-  createdAt!: Date;
+  created_at!: Date;
 
   @ApiProperty({
     description: 'Last update time of the venue',
@@ -40,5 +40,5 @@ export class Venue implements PrismaVenue {
     format: 'date-time',
     example: '2025-04-25T15:30:00Z',
   })
-  updatedAt!: Date;
+  updated_at!: Date;
 }

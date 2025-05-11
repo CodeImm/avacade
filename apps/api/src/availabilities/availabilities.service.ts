@@ -210,7 +210,7 @@ export class AvailabilitiesService {
    * Validates that exactly one entity reference is provided
    */
   private validateEntityReference(dto: CreateAvailabilityDto): void {
-    const providedEntityCount = [dto.venueId, dto.spaceId].filter(
+    const providedEntityCount = [dto.venue_id, dto.space_id].filter(
       Boolean,
     ).length;
 
@@ -233,10 +233,10 @@ export class AvailabilitiesService {
     }
 
     // Otherwise resolve from entity
-    if (dto.venueId) {
-      return this.resolveTimezoneFromVenue(dto.venueId);
-    } else if (dto.spaceId) {
-      return this.resolveTimezoneFromSpace(dto.spaceId);
+    if (dto.venue_id) {
+      return this.resolveTimezoneFromVenue(dto.venue_id);
+    } else if (dto.space_id) {
+      return this.resolveTimezoneFromSpace(dto.space_id);
     }
 
     // This should not happen due to prior validation
@@ -293,7 +293,7 @@ export class AvailabilitiesService {
    */
   private async prepareAvailabilityRecords(
     dto: CreateAvailabilityDto,
-  ): Promise<Omit<Availability, 'id' | 'createdAt' | 'updatedAt'>[]> {
+  ): Promise<Omit<Availability, 'id' | 'created_at' | 'updated_at'>[]> {
     // Group intervals by time pattern
     const intervalGroups = this.groupIntervalsByPattern(
       dto.rules.intervals,
@@ -391,11 +391,11 @@ export class AvailabilitiesService {
   private createAvailabilityObject(
     dto: CreateAvailabilityDto,
     group: TimeIntervalGroup,
-  ): Omit<Availability, 'id' | 'createdAt' | 'updatedAt'> {
+  ): Omit<Availability, 'id' | 'created_at' | 'updated_at'> {
     return {
       ...dto,
-      spaceId: dto.spaceId ?? null,
-      venueId: dto.venueId ?? null,
+      space_id: dto.space_id ?? null,
+      venue_id: dto.venue_id ?? null,
       rules: {
         interval: {
           start_time: group.start_time,
@@ -419,7 +419,7 @@ export class AvailabilitiesService {
    * Validates that no availability records would create overlaps
    */
   private async validateNoOverlappingIntervals(
-    availabilities: Omit<Availability, 'id' | 'createdAt' | 'updatedAt'>[],
+    availabilities: Omit<Availability, 'id' | 'created_at' | 'updated_at'>[],
   ): Promise<void> {
     // Check each availability in parallel
     await Promise.all(
@@ -433,7 +433,7 @@ export class AvailabilitiesService {
    * Validates a single availability against existing records
    */
   private async validateSingleAvailability(
-    newAvailability: Omit<Availability, 'id' | 'createdAt' | 'updatedAt'>,
+    newAvailability: Omit<Availability, 'id' | 'created_at' | 'updated_at'>,
   ): Promise<void> {
     const overlaps = await this.findOverlappingIntervals(newAvailability);
 
@@ -449,11 +449,11 @@ export class AvailabilitiesService {
    * Finds overlapping intervals between new availability and existing ones
    */
   private async findOverlappingIntervals(
-    newAvailability: Omit<Availability, 'id' | 'createdAt' | 'updatedAt'>,
+    newAvailability: Omit<Availability, 'id' | 'created_at' | 'updated_at'>,
   ): Promise<OverlappingInterval[]> {
     // Determine which entity we're working with
-    const { venueId, spaceId } = newAvailability;
-    const entityFilter = venueId ? { venueId } : { spaceId };
+    const { venue_id, space_id } = newAvailability;
+    const entityFilter = venue_id ? { venue_id } : { space_id };
 
     // Find all existing availabilities for this entity
     const existingAvailabilities = await this.prisma.availability.findMany({
@@ -494,12 +494,12 @@ export class AvailabilitiesService {
    */
   private generateTimeIntervals(
     availability:
-      | Omit<Availability, 'id' | 'createdAt' | 'updatedAt'>
+      | Omit<Availability, 'id' | 'created_at' | 'updated_at'>
       | Availability,
     startDate: string,
     endDate: string,
   ): IntervalDto[] {
-    const { rules, venueId, spaceId, timezone } = availability;
+    const { rules, venue_id, space_id, timezone } = availability;
     const { interval, recurrence_rule } = rules;
 
     // Calculate base interval bounds
@@ -521,8 +521,8 @@ export class AvailabilitiesService {
             start_date: intervalStart.toISOString(),
             end_date: intervalEnd.toISOString(),
             availability_id: 'id' in availability ? availability.id : undefined,
-            venueId,
-            spaceId,
+            space_id,
+            venue_id,
           },
         ];
       }
@@ -581,8 +581,8 @@ export class AvailabilitiesService {
         start_date: startDate.toISOString(),
         end_date: endDate.toISOString(),
         availability_id: 'id' in availability ? availability.id : undefined,
-        venueId,
-        spaceId,
+        space_id,
+        venue_id,
       };
     });
   }
@@ -754,7 +754,7 @@ export class AvailabilitiesService {
 
   private generateAvailabilityIntervals(
     availability:
-      | Omit<Availability, 'id' | 'createdAt' | 'updatedAt'>
+      | Omit<Availability, 'id' | 'created_at' | 'updated_at'>
       | Availability,
 
     startDate: string,
@@ -762,7 +762,7 @@ export class AvailabilitiesService {
   ): IntervalDto[] {
     const intervals: IntervalDto[] = [];
 
-    const { rules, venueId, spaceId, timezone } = availability;
+    const { rules, venue_id, space_id, timezone } = availability;
     const { interval } = rules;
 
     const start = this.dayjs.utc(startDate).startOf('day');
@@ -777,8 +777,8 @@ export class AvailabilitiesService {
           start_date: intervalStart.toISOString(),
           end_date: intervalEnd.toISOString(),
           availability_id: 'id' in availability ? availability.id : undefined,
-          venueId,
-          spaceId,
+          space_id,
+          venue_id,
         });
       }
       return intervals;
@@ -839,8 +839,8 @@ export class AvailabilitiesService {
         start_date: startDate.toISOString(),
         end_date: endDate.toISOString(),
         availability_id: 'id' in availability ? availability.id : undefined,
-        venueId,
-        spaceId,
+        space_id,
+        venue_id,
       });
     });
 
