@@ -203,7 +203,6 @@ enum ParticipantMode {
   PERSONAL
 }
 
-' Сущность EventType
 entity EventType {
   +id : uuid
   +name : string
@@ -246,21 +245,26 @@ entity Event {
   +max_participants : int
   +is_recurring : boolean
   +cancellation_reason : string
-  +recurrence_rule : json
   --
   +created_at : datetime
   +updated_at : datetime
 }
 
+enum AccessibilityType {
+  STAFF_ONLY
+  CLIENT_REQUESTABLE
+  SHARED
+}
+
 entity EventTemplate {
   +id : uuid
   +title : string
+  +description? : text
   +duration : int // в минутах
-  +is_client_accessible : boolean // true для клиентских, false для личных
   +price? : int
-  +auto_confirm?: Boolean / Автоматическое подтверждение для специалистов фрилансеров
+  +accessibility : AccessibilityType
+  +auto_confirm? : Boolean // Автоматическое подтверждение для специалистов фрилансеров
   --
-  +description : text
   +specialist_id : uuid
   +type_id : uuid
   +participant_mode : ParticipantMode
@@ -274,11 +278,10 @@ entity EventTemplate {
 }
 note right of EventTemplate
   Шаблоны:
-  - Клиентские: is_client_accessible = true (TRIAL)
-  - Личные: is_client_accessible = false (VACATION)
+  - Клиентские: accessibility = CLIENT_REQUESTABLE (TRIAL)
+  - Личные: accessibility = STAFF_ONLY (VACATION)
 end note
 
-' Перечисление для статусов бронирования
 enum BookingStatus {
   PENDING
   CONFIRMED
@@ -306,6 +309,30 @@ note top of Booking
   подтверждения специалистом
 end note
 
+enum EventRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELED
+}
+
+entity EventRequest {
+  +id : uuid
+  +event_template_id : uuid
+  +preferred_time : datetime?
+  
+  +title_snapshot : string
+  +description_snapshot : string?
+  +duration_snapshot : int
+  +price_snapshot : int?
+  +status : EventRequestStatus
+  +comment : string?
+  +response_comment : string?
+  
+  +created_at : datetime
+  +updated_at : datetime
+}
+
 ' Связи
 EventType ||--o{ Event : defines
 User ||--o{ UserRole : has
@@ -327,6 +354,7 @@ Organization ||--o{ ModeratorProfile : scoped_to
 User ||--o{ Organization : owns
 User ||--o{ Event : teaches
 User ||--o{ Booking : makes
+User ||--o{ EventRequest : creates // Добавлено: пользователь (клиент) создает запрос
 
 Organization ||--o{ Venue : has
 Venue ||--o{ Space : contains
@@ -336,8 +364,12 @@ Space ||--o{ Event : hosts
 Event ||--o{ Booking : has
 EventTemplate ||--o{ Event : generates
 EventTemplate ||--o{ Booking : used_by
+EventTemplate ||--o{ EventRequest : used_by // Добавлено: шаблон используется запросом
 EventType ||--o{ EventTemplate : defines
 User ||--o{ EventTemplate : creates
+
+EventTemplate ||--o{ AccessibilityType : uses
+EventRequest ||--o{ EventRequestStatus : uses // Добавлено: статус запроса
 
 Event ||--o{ EventDelivery : uses
 Event ||--o{ EventVisibility : uses

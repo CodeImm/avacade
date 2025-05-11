@@ -1,0 +1,5 @@
+export enum AccessibilityType {
+  STAFF_ONLY = 'STAFF_ONLY',
+  CLIENT_REQUESTABLE = 'CLIENT_REQUESTABLE',
+  SHARED = 'SHARED',
+}

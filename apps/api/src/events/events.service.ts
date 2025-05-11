@@ -136,20 +136,20 @@ export class EventsService {
         interval: eventInterval,
         recurrence_rule,
       },
-      include: { space: true },
+      include: { Space: true },
     });
   }
 
   async findAll() {
     return await this.prisma.event.findMany({
-      include: { space: true },
+      include: { Space: true },
     });
   }
 
   async findOne(id: string) {
     const event = await this.prisma.event.findUnique({
       where: { id },
-      include: { space: true },
+      include: { Space: true },
     });
 
     if (!event) {

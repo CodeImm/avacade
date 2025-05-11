@@ -80,16 +80,42 @@ model Event {
   updatedAt       DateTime @updatedAt
 
   // Relations
-  space Space? @relation(fields: [spaceId], references: [id])
+  Space Space? @relation(fields: [spaceId], references: [id])
 }
 
 model EventTemplate {
-  id                   String   @id @default(uuid()) // UUID as the primary key
-  title                String // Title of the event template
-  duration             Int // Duration in minutes
-  price                Int?
-  is_client_accessible Boolean  @default(false)
-  auto_confirm         Boolean  @default(false) // Автоматическое подтверждение для специалистов без организации
-  created_at           DateTime @default(now()) // Creation timestamp
-  updated_at           DateTime @updatedAt // Last update timestamp
+  id String @id @default(uuid()) // UUID as the primary key
+
+  title       String // Title of the event template
+  duration    Int // Duration in minutes
+  price       Int?
+  description String?
+
+  /// [AccessibilityType]
+  accessibility String  @default("STAFF_ONLY")
+  auto_confirm  Boolean @default(false) // Автоматическое подтверждение для специалистов без организации
+  is_active     Boolean @default(true) // Активен ли шаблон сейчас
+
+  created_at   DateTime       @default(now()) // Creation timestamp
+  updated_at   DateTime       @updatedAt // Last update timestamp
+  EventRequest EventRequest[]
+}
+
+model EventRequest {
+  id                String    @id @default(uuid())
+  event_template_id String
+  preferred_time    DateTime?
+
+  title_snapshot       String
+  duration_snapshot    Int
+  description_snapshot String?
+  price_snapshot       Int?
+
+  /// [EventRequestStatus] 
+  status           String        @default("PENDING")
+  comment          String?
+  response_comment String?
+  created_at       DateTime      @default(now())
+  updated_at       DateTime      @updatedAt
+  EventTemplate    EventTemplate @relation(fields: [event_template_id], references: [id])
 }

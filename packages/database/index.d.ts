@@ -62,6 +62,19 @@ declare global {
       CANCELED = 'CANCELED',
       POSTPONED = 'POSTPONED',
     }
+
+    enum AccessibilityType {
+      STAFF_ONLY = 'STAFF_ONLY',
+      CLIENT_REQUESTABLE = 'CLIENT_REQUESTABLE',
+      SHARED = 'SHARED',
+    }
+
+    enum EventRequestStatus {
+      PENDING = 'PENDING',
+      CONFIRMED = 'CONFIRMED',
+      REJECTED = 'REJECTED',
+      CANCELED = 'CANCELED',
+    }
   }
 }
 // TODO: дублирование типов в packages\api\src\rules

@@ -9,6 +9,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { EventsModule } from './events/events.module';
 import { DayjsModule } from './dayjs/dayjs.module';
 import { EventTemplatesModule } from './event-templates/event-templates.module';
+import { EventRequestsModule } from './event-requests/event-requests.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { EventTemplatesModule } from './event-templates/event-templates.module';
     EventsModule,
     DayjsModule,
     EventTemplatesModule,
+    EventRequestsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

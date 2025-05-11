@@ -31,3 +31,9 @@ export * from './event/types';
 export * from './event-template/dto/create-event-template.dto';
 export * from './event-template/dto/update-event-template.dto';
 export * from './event-template/entities/event-template.entity';
+export * from './event-template/types';
+
+export * from './event-request/dto/create-event-request.dto';
+export * from './event-request/dto/update-event-request.dto';
+export * from './event-request/entities/event-request.entity';
+export * from './event-request/types';

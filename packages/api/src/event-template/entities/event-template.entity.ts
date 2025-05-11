@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-
 import type { EventTemplate as PrismaEventTemplate } from '@repo/db';
+import { AccessibilityType } from '../types';
 
 export class EventTemplate implements PrismaEventTemplate {
   @ApiProperty({
@@ -17,6 +17,14 @@ export class EventTemplate implements PrismaEventTemplate {
   })
   title!: string;
 
+  @ApiPropertyOptional({
+    description: 'Detailed description of the event template',
+    example:
+      'A relaxing 60-minute yoga session focused on flexibility and breathing.',
+    type: String,
+  })
+  description!: string | null;
+
   @ApiProperty({
     description: 'Duration of the event template in minutes',
     example: 60,
@@ -30,15 +38,7 @@ export class EventTemplate implements PrismaEventTemplate {
     minimum: 0,
     type: Number,
   })
-  price?: number;
-
-  @ApiProperty({
-    description: 'Indicates whether the template is accessible to clients',
-    example: true,
-    type: Boolean,
-    default: false,
-  })
-  is_client_accessible!: boolean;
+  price!: number | null;
 
   @ApiProperty({
     description:
@@ -48,6 +48,22 @@ export class EventTemplate implements PrismaEventTemplate {
     default: false,
   })
   auto_confirm!: boolean;
+
+  @ApiProperty({
+    description: 'Whether the template is currently active and usable',
+    example: true,
+    type: Boolean,
+    default: true,
+  })
+  is_active!: boolean;
+
+  @ApiProperty({
+    description: 'Defines who can see and request this template',
+    enum: AccessibilityType,
+    example: AccessibilityType.CLIENT_REQUESTABLE,
+    default: AccessibilityType.STAFF_ONLY,
+  })
+  accessibility!: AccessibilityType;
 
   @ApiProperty({
     description: 'Creation timestamp of the event template (ISO 8601 format)',

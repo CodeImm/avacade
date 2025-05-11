@@ -9,36 +9,63 @@ participant "Database" as DB
 == Создание бронирования ==
 Client -> UI: Выбрать шаблон и время
 UI -> System: Создать Booking
+System -> DB: Проверить шаблон (is_client_accessible, auto_confirm, specialist.organizationId)
 System -> DB: Проверить доступность (Space availability)
 System -> DB: Проверить конфликты с событиями
 alt Доступно и нет конфликтов
-  System -> DB: Сохранить Booking (status: PENDING)
-  System -> NS: Отправить уведомление о создании бронирования (Client)
-  NS -> Client: Уведомление (email/SMS/push)
-  System -> NS: Отправить уведомление о новой брони (Specialist)
-  NS -> Specialist: Уведомление (email/SMS/push)
+  alt auto_confirm = true и специалист без организации
+    System -> DB: Сохранить Booking (status: CONFIRMED)
+    System -> DB: Создать Event
+    System -> NS: Отправить уведомление о подтверждении (Client)
+    NS -> Client: Уведомление: "Бронирование подтверждено за {price} руб."
+    System -> NS: Отправить уведомление о создании события (Specialist)
+    NS -> Specialist: Уведомление: "Событие создано автоматически"
+  else Обычное бронирование
+    System -> DB: Сохранить Booking (status: PENDING)
+    System -> NS: Отправить уведомление о создании бронирования (Client)
+    NS -> Client: Уведомление: "Бронирование ожидает подтверждения за {price} руб."
+    System -> NS: Отправить уведомление о новой брони (Specialist)
+    NS -> Specialist: Уведомление: "Бронь ожидает подтверждения"
+  end alt
 else Недоступно или конфликт
   System -> UI: Ошибка (время недоступно или конфликт)
   UI -> Client: Показать ошибку
 end alt
 
-== Подтверждение/Отклонение бронирования ==
+== Подтверждение/Отклонение бронирования (для PENDING) ==
 Specialist -> UI: Подтвердить/Отклонить бронирование
 UI -> System: Обновить Booking (status: CONFIRMED/REJECTED)
 System -> DB: Найти Booking
-alt status = CONFIRMED
-  System -> DB: Создать Event, обновить Booking (status: CONFIRMED)
-  System -> NS: Отправить уведомление о подтверждении (Client)
-  NS -> Client: Уведомление (email/SMS/push)
-  System -> NS: Отправить уведомление о создании события (Specialist)
-  NS -> Specialist: Уведомление (email/SMS/push)
-else status = REJECTED
-  System -> DB: Обновить Booking (status: REJECTED)
-  System -> NS: Отправить уведомление об отклонении (Client)
-  NS -> Client: Уведомление (email/SMS/push)
+alt Booking.status = PENDING
+  alt status = CONFIRMED
+    System -> DB: Создать Event, обновить Booking (status: CONFIRMED)
+    System -> NS: Отправить уведомление о подтверждении (Client)
+    NS -> Client: Уведомление: "Бронирование подтверждено за {price} руб."
+    System -> NS: Отправить уведомление о создании события (Specialist)
+    NS -> Specialist: Уведомление: "Событие создано"
+  else status = REJECTED
+    System -> DB: Обновить Booking (status: REJECTED)
+    System -> NS: Отправить уведомление об отклонении (Client)
+    NS -> Client: Уведомление: "Бронирование отклонено"
+  end alt
 else Booking уже обработано
   System -> UI: Ошибка (бронирование уже обработано)
   UI -> Specialist: Показать ошибку
+end alt
+
+== Отмена бронирования ==
+Client -> UI: Отменить бронирование
+UI -> System: Отменить Booking
+System -> DB: Найти Booking
+alt Booking.status = PENDING или CONFIRMED
+  System -> DB: Обновить Booking (status: CANCELLED)
+  System -> NS: Отправить уведомление об отмене (Client)
+  NS -> Client: Уведомление: "Бронирование отменено"
+  System -> NS: Отправить уведомление об отмене (Specialist)
+  NS -> Specialist: Уведомление: "Бронирование отменено"
+else Booking уже обработано
+  System -> UI: Ошибка (бронирование уже обработано)
+  UI -> Client: Показать ошибку
 end alt
 
 @enduml

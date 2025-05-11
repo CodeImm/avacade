@@ -6,5 +6,6 @@ import { AvailabilitiesService } from '../availabilities/availabilities.service'
 @Module({
   controllers: [EventsController],
   providers: [EventsService, AvailabilitiesService],
+  exports: [EventsService],
 })
 export class EventsModule {}
