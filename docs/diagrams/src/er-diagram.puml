@@ -229,15 +229,17 @@ end note
 
 entity Event {
   +id : uuid
+  +event_request_id : String?
   +space_id : uuid
   +title : string
+  +description : text?
   +interval : Json
-  +recurrence_rule? : Json
+  +timezone : String
+  +recurrence_rule : Json?
   +status : EventStatus
+  +price : int?
   --
   +specialist_id : uuid
-  +parent_event_id : uuid
-  +description : text
   +type_id : uuid
   +participant_mode : ParticipantMode
   +visibility : EventVisibility
@@ -264,6 +266,7 @@ entity EventTemplate {
   +price? : int
   +accessibility : AccessibilityType
   +auto_confirm? : Boolean // Автоматическое подтверждение для специалистов фрилансеров
+  +is_active : boolean
   --
   +specialist_id : uuid
   +type_id : uuid
@@ -272,7 +275,6 @@ entity EventTemplate {
   +visibility : EventVisibility
   +platform_link : string // для ONLINE, HYBRID
   +difficulty_level : string
-  +is_active : boolean
   --
   +created_at : datetime
 }
@@ -325,6 +327,7 @@ entity EventRequest {
   +description_snapshot : string?
   +duration_snapshot : int
   +price_snapshot : int?
+
   +status : EventRequestStatus
   +comment : string?
   +response_comment : string?
