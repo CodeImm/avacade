@@ -1,6 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import type { EventTemplate as PrismaEventTemplate } from '@repo/db';
-import { AccessibilityType } from '../types';
 
 export class EventTemplate implements PrismaEventTemplate {
   @ApiProperty({
@@ -41,15 +40,6 @@ export class EventTemplate implements PrismaEventTemplate {
   price!: number | null;
 
   @ApiProperty({
-    description:
-      'If true, bookings created from this template will be auto-confirmed',
-    example: true,
-    type: Boolean,
-    default: false,
-  })
-  auto_confirm!: boolean;
-
-  @ApiProperty({
     description: 'Whether the template is currently active and usable',
     example: true,
     type: Boolean,
@@ -58,12 +48,12 @@ export class EventTemplate implements PrismaEventTemplate {
   is_active!: boolean;
 
   @ApiProperty({
-    description: 'Defines who can see and request this template',
-    enum: AccessibilityType,
-    example: AccessibilityType.CLIENT_REQUESTABLE,
-    default: AccessibilityType.STAFF_ONLY,
+    description: 'List of associated space IDs where this template is valid',
+    example: ['space1-id', 'space2-id'],
+    type: [String],
+    default: [],
   })
-  accessibility!: AccessibilityType;
+  space_ids!: string[];
 
   @ApiProperty({
     description: 'Creation timestamp of the event template (ISO 8601 format)',

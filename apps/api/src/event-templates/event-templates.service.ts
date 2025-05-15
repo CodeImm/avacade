@@ -13,11 +13,9 @@ export class EventTemplatesService {
   create(
     createEventTemplateDto: CreateEventTemplateDto,
   ): Promise<EventTemplate> {
+    // TODO: провалидировать space_ids
     return this.prisma.eventTemplate.create({
-      data: {
-        title: createEventTemplateDto.title,
-        duration: createEventTemplateDto.duration,
-      },
+      data: createEventTemplateDto,
     });
   }
 

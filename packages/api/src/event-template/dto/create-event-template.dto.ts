@@ -1,5 +1,8 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
+  ArrayNotEmpty,
+  ArrayUnique,
+  IsArray,
   IsBoolean,
   IsInt,
   IsNotEmpty,
@@ -27,6 +30,18 @@ export class CreateEventTemplateDto {
   @Min(1)
   duration!: number;
 
+  @ApiProperty({
+    description: 'IDs of spaces where this template is valid',
+    example: ['space1', 'space2'],
+    type: [String],
+    default: [],
+  })
+  @IsArray()
+  @ArrayNotEmpty()
+  @ArrayUnique()
+  @IsString({ each: true })
+  space_ids!: string[];
+
   @ApiPropertyOptional({
     description: 'Price in whole units (e.g., rubles)',
     example: 1500,
@@ -38,24 +53,22 @@ export class CreateEventTemplateDto {
   @IsOptional()
   price?: number;
 
-  @ApiProperty({
-    description: 'Indicates whether the template is accessible to clients',
-    example: true,
-    type: Boolean,
-    default: false,
+  @ApiPropertyOptional({
+    description: 'Detailed description of the event template',
+    example: 'This yoga session focuses on breathing and flexibility.',
+    type: String,
   })
-  @IsBoolean()
+  @IsString()
   @IsOptional()
-  is_client_accessible!: boolean;
+  description?: string;
 
   @ApiPropertyOptional({
-    description:
-      'If true, bookings created from this template will be auto-confirmed',
+    description: 'Indicates whether the template is active',
     example: true,
+    default: true,
     type: Boolean,
-    default: false,
   })
   @IsBoolean()
   @IsOptional()
-  auto_confirm?: boolean;
+  is_active?: boolean;
 }

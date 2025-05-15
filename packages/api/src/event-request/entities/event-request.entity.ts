@@ -58,6 +58,14 @@ export class EventRequest implements PrismaEventRequest {
   })
   comment!: string | null;
 
+  @ApiProperty({
+    description:
+      'Snapshot of the space IDs associated with the event template at the time of request',
+    example: ['space-uuid-1', 'space-uuid-2'],
+    type: [String],
+  })
+  space_ids_snapshot!: string[];
+
   @ApiPropertyOptional({
     description: 'Response comment from the manager or tutor',
     example: 'Confirmed for 18:00',

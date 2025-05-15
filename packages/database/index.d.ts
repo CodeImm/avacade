@@ -63,12 +63,6 @@ declare global {
       POSTPONED = 'POSTPONED',
     }
 
-    enum AccessibilityType {
-      STAFF_ONLY = 'STAFF_ONLY',
-      CLIENT_REQUESTABLE = 'CLIENT_REQUESTABLE',
-      SHARED = 'SHARED',
-    }
-
     enum EventRequestStatus {
       PENDING = 'PENDING',
       CONFIRMED = 'CONFIRMED',

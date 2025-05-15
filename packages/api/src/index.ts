@@ -35,5 +35,6 @@ export * from './event-template/types';
 
 export * from './event-request/dto/create-event-request.dto';
 export * from './event-request/dto/update-event-request.dto';
+export * from './event-request/dto/reject-event-request.dto';
 export * from './event-request/entities/event-request.entity';
 export * from './event-request/types';

@@ -264,10 +264,11 @@ entity EventTemplate {
   +description? : text
   +duration : int // в минутах
   +price? : int
-  +accessibility : AccessibilityType
-  +auto_confirm? : Boolean // Автоматическое подтверждение для специалистов фрилансеров
   +is_active : boolean
+  +space_ids : string[]
   --
+  +auto_confirm? : Boolean // Автоматическое подтверждение для специалистов фрилансеров
+  +accessibility : AccessibilityType
   +specialist_id : uuid
   +type_id : uuid
   +participant_mode : ParticipantMode
@@ -313,7 +314,7 @@ end note
 
 enum EventRequestStatus {
   PENDING
-  APPROVED
+  CONFIRMED
   REJECTED
   CANCELED
 }

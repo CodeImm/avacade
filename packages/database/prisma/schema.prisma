@@ -95,10 +95,9 @@ model EventTemplate {
   price       Int?
   description String?
 
-  /// [AccessibilityType]
-  accessibility String  @default("STAFF_ONLY")
-  auto_confirm  Boolean @default(false) // Автоматическое подтверждение для специалистов без организации
-  is_active     Boolean @default(true) // Активен ли шаблон сейчас
+  space_ids String[] @default([])
+
+  is_active Boolean @default(true) // Активен ли шаблон сейчас
 
   created_at   DateTime       @default(now()) // Creation timestamp
   updated_at   DateTime       @updatedAt // Last update timestamp
@@ -114,6 +113,7 @@ model EventRequest {
   duration_snapshot    Int
   description_snapshot String?
   price_snapshot       Int?
+  space_ids_snapshot   String[]
 
   /// [EventRequestStatus] 
   status           String        @default("PENDING")

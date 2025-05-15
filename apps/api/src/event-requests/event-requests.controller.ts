@@ -9,7 +9,11 @@ import {
   Query,
 } from '@nestjs/common';
 import { EventRequestsService } from './event-requests.service';
-import { CreateEventRequestDto, UpdateEventRequestDto } from '@repo/api';
+import {
+  CreateEventRequestDto,
+  UpdateEventRequestDto,
+  RejectEventRequestDto,
+} from '@repo/api';
 import {
   ApiTags,
   ApiOperation,
@@ -113,19 +117,19 @@ export class EventRequestsController {
     return this.eventRequestsService.remove(id);
   }
 
-  @Patch(':id/approve')
+  @Patch(':id/confirm')
   @ApiOperation({
-    summary: 'Approve an event request',
-    description: 'Approves an event request and creates an event',
+    summary: 'Confirm an event request',
+    description: 'Confirms an event request and creates an event',
   })
   @ApiParam({ name: 'id', description: 'Event request ID' })
   @ApiResponse({
     status: 200,
-    description: 'The event request has been approved and event created.',
+    description: 'The event request has been confirmd and event created.',
   })
   @ApiResponse({ status: 404, description: 'Event request not found.' })
-  approve(@Param('id') id: string) {
-    return this.eventRequestsService.approve(id);
+  confirm(@Param('id') id: string) {
+    return this.eventRequestsService.confirm(id);
   }
 
   @Patch(':id/reject')
@@ -139,7 +143,22 @@ export class EventRequestsController {
     description: 'The event request has been rejected.',
   })
   @ApiResponse({ status: 404, description: 'Event request not found.' })
-  reject(@Param('id') id: string, @Body() data: { comment: string }) {
+  reject(@Param('id') id: string, @Body() data: RejectEventRequestDto) {
     return this.eventRequestsService.reject(id, data.comment);
+  }
+
+  @Patch(':id/cancel')
+  @ApiOperation({
+    summary: 'Cancel an event request',
+    description: 'Cancels an event request, changing its status to CANCELLED',
+  })
+  @ApiParam({ name: 'id', description: 'Event request ID' })
+  @ApiResponse({
+    status: 200,
+    description: 'The event request has been successfully cancelled.',
+  })
+  @ApiResponse({ status: 404, description: 'Event request not found.' })
+  cancel(@Param('id') id: string) {
+    return this.eventRequestsService.cancel(id);
   }
 }

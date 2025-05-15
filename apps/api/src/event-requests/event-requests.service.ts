@@ -6,11 +6,10 @@ import {
 import {
   CreateEventRequestDto,
   EventRequestStatus,
-  EventStatus,
   UpdateEventRequestDto,
 } from '@repo/api';
-import { PrismaService } from '../prisma/prisma.service';
 import { EventsService } from '../events/events.service';
+import { PrismaService } from '../prisma/prisma.service';
 
 interface FindAllParams {
   status?: string;
@@ -47,62 +46,22 @@ export class EventRequestsService {
       throw new ForbiddenException('Event template is not active');
     }
 
-    // Check if the template is accessible for client requests
-    if (eventTemplate.accessibility === 'STAFF_ONLY') {
-      throw new ForbiddenException(
-        'This event template is not available for client requests',
-      );
-    }
+    // TODO: Check if the template is accessible for client requests
 
     // Prepare common event request data
     const eventRequestData = {
       event_template_id: createEventRequestDto.event_template_id,
       preferred_time: createEventRequestDto.preferred_time,
       comment: createEventRequestDto.comment,
+
       title_snapshot: eventTemplate.title,
       description_snapshot: eventTemplate.description,
       duration_snapshot: eventTemplate.duration,
       price_snapshot: eventTemplate.price,
-      status: eventTemplate.auto_confirm
-        ? EventRequestStatus.CONFIRMED
-        : EventRequestStatus.PENDING,
+      space_ids_snapshot: eventTemplate.space_ids,
+
+      status: EventRequestStatus.PENDING,
     };
-
-    // If auto_confirm is true, create Event and Booking in a transaction
-    if (eventTemplate.auto_confirm) {
-      return this.prisma.$transaction(async (tx) => {
-        // Create the event request
-        const eventRequest = await tx.eventRequest.create({
-          data: eventRequestData,
-        });
-
-        // Calculate start and end times for the event
-        const startTime = new Date(createEventRequestDto.preferred_time);
-        const endTime = new Date(
-          startTime.getTime() + eventTemplate.duration * 60 * 1000,
-        );
-
-        const eventData = {
-          event_request_id: eventRequest.id,
-          title: eventTemplate.title,
-          description: eventTemplate.description,
-          timezone: '',
-          interval: {},
-          status: EventStatus.CONFIRMED,
-          price: eventTemplate.price,
-          space_id: 'null',
-        };
-
-        // Create the event
-        const event = await tx.event.create({
-          data: eventData,
-        });
-
-        //TODO: Create the booking
-
-        return { eventRequest, event };
-      });
-    }
 
     // If auto_confirm is false, create only the event request
     return this.prisma.eventRequest.create({
@@ -182,11 +141,11 @@ export class EventRequestsService {
     });
   }
 
-  async approve(id: string) {
+  async confirm(id: string) {
     const eventRequest = await this.findOne(id);
 
     if (eventRequest.status !== 'PENDING') {
-      throw new Error(
+      throw new ForbiddenException(
         `Cannot approve event request with status ${eventRequest.status}`,
       );
     }
@@ -198,18 +157,18 @@ export class EventRequestsService {
     return this.prisma.eventRequest.update({
       where: { id },
       data: {
-        status: 'APPROVED',
+        status: EventRequestStatus.CONFIRMED,
         // Здесь можно добавить поле для связи с созданным событием,
         // например, created_event_id: event.id
       },
     });
   }
 
-  async reject(id: string, comment: string) {
+  async reject(id: string, comment?: string) {
     const eventRequest = await this.findOne(id);
 
-    if (eventRequest.status !== 'PENDING') {
-      throw new Error(
+    if (eventRequest.status !== EventRequestStatus.PENDING) {
+      throw new ForbiddenException(
         `Cannot reject event request with status ${eventRequest.status}`,
       );
     }
@@ -217,8 +176,29 @@ export class EventRequestsService {
     return this.prisma.eventRequest.update({
       where: { id },
       data: {
-        status: 'REJECTED',
+        status: EventRequestStatus.REJECTED,
         response_comment: comment,
+      },
+    });
+  }
+
+  async cancel(id: string) {
+    const eventRequest = await this.findOne(id);
+
+    // Разрешаем отмену только если статус PENDING или CONFIRMED (можно настроить)
+    if (
+      eventRequest.status !== EventRequestStatus.PENDING ||
+      eventRequest.status !== EventRequestStatus.CONFIRMED
+    ) {
+      throw new ForbiddenException(
+        `Cannot cancel event request with status ${eventRequest.status}`,
+      );
+    }
+
+    return this.prisma.eventRequest.update({
+      where: { id },
+      data: {
+        status: EventRequestStatus.CANCELED,
       },
     });
   }
